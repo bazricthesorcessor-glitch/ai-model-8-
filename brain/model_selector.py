@@ -23,7 +23,7 @@ or
 THINK
 """
 
-def ask_router(user_input):
+def select_model(user_input):
 
     url = GEMMA_API + OLLAMA_ENDPOINTS["generate"]
 
@@ -36,7 +36,17 @@ def ask_router(user_input):
         }
     }
 
-    response = requests.post(url, json=payload)
+   try:
+    response = requests.post(
+        url,
+        json=payload,
+        timeout=LLM_CONFIG["timeout"]
+    )
+
+    data = response.json()
+
+except Exception:
+    return LLM_CONFIG["general_model"]
 
     data = response.json()
 
