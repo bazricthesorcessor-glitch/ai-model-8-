@@ -1,0 +1,88 @@
+{
+  "version": "1.0",
+  "description": "Caelestia Shell Configuration - Controls OS manipulation, gestures, and keyboard shortcuts",
+
+  "shell": {
+    "name": "caelestia",
+    "type": "hyprland",
+    "display_server": "wayland",
+    "version": "0.54.3"
+  },
+
+  "paths": {
+    "config_dir": "/home/.config/hypr",
+    "shell_config": "/home/.config/.caelestia/shell.json",
+    "hyprland_config": "/home/.config/hypr/hyprland.conf",
+    "state_file": "/home/.cache/caelestia/state.json",
+    "logs_dir": "/home/.cache/caelestia/logs"
+  },
+
+  "gestures": {
+    "enabled": true,
+    "celestial_dots": true,
+    "swipe_threshold": 20,
+    "circle_threshold": 100,
+    "timeout_ms": 500,
+
+    "mappings": {
+      "swipe_up": "maximize_window",
+      "swipe_down": "minimize_window",
+      "swipe_left": "prev_workspace",
+      "swipe_right": "next_workspace",
+      "circle_cw": "rotate_windows",
+      "circle_ccw": "rotate_windows_reverse"
+    }
+  },
+
+  "keyboard": {
+    "enabled": true,
+    "modifier": "super",
+
+    "default_bindings": {
+      "super+q": "close_window",
+      "super+f": "toggle_fullscreen",
+      "super+space": "toggle_floating",
+      "super+1": "workspace_1",
+      "super+2": "workspace_2",
+      "super+3": "workspace_3",
+      "super+h": "split_left",
+      "super+j": "split_down",
+      "super+k": "split_up",
+      "super+l": "split_right"
+    }
+  },
+
+  "window_management": {
+    "enabled": true,
+    "layout": "master-slave",
+    "master_ratio": 0.6,
+    "gaps": 10,
+    "auto_focus": true,
+    "focus_new_windows": true
+  },
+
+  "split_management": {
+    "enabled": true,
+    "default_mode": "master_slave",
+    "directions": ["left", "right", "up", "down"],
+    "resize_step": 50,
+    "gap_step": 5
+  },
+
+  "monitors": {
+    "auto_detect": true,
+    "auto_arrange": true
+  },
+
+  "workspaces": {
+    "count": 10,
+    "auto_create": true,
+    "persistent": true
+  },
+
+  "system": {
+    "shell": "/usr/bin/fish",
+    "timeout": 300,
+    "max_retries": 3
+  }
+}

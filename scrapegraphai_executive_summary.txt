@@ -1,0 +1,56 @@
+SCRAPEGRAPHAI: SEMANTIC WEB SCRAPING FOR AVRIL
+Technical Summary (May 2026)
+
+CORE INNOVATION
+ScrapeGraphAI replaces brittle CSS/XPath selectors with LLM-powered semantic understanding. Instead of parsing HTML trees with regex patterns, it uses natural language prompts to extract meaning directly from content. This fundamentally shifts scraping from fragile, maintenance-heavy rule engineering to flexible, prompt-based extraction.
+
+ARCHITECTURE
+The framework uses a directed acyclic graph (DAG) execution model where specialized nodes handle distinct pipeline stages:
+1. FetchNode: Playwright-based HTML retrieval with async/concurrent loading, proxy rotation, and JavaScript rendering
+2. ParseNode: HTML-to-Markdown conversion with intelligent chunking (respects token limits for LLM processing)
+3. GenerateAnswerNode: LLM-driven extraction using Pydantic schemas for type-safe, structured outputs
+4. ConditionalNode: Quality checking with automatic retries on extraction failures
+5. ReasoningNode: Multi-step LLM reasoning for complex queries
+
+The graph execution maintains state through transformation pipeline—each node reads input state keys and writes output keys, allowing flexible data flow and conditional branching.
+
+LLM INTEGRATION
+ScrapeGraphAI abstracts 25+ LLM providers through LangChain, supporting both API-based (OpenAI, Groq, Claude) and local models (Ollama). Configuration is provider-agnostic:
+
+  llm_config = {
+      "model": "ollama/llama3.2",  # Local privacy-preserving
+      "model_tokens": 4096,
+      "rate_limit": {"requests_per_second": 5}
+  }
+
+Local Ollama integration enables cost-free, on-premises extraction ideal for AVRIL's privacy requirements and bulk processing economics. Schema-aware prompting with Pydantic automatically enforces output structure and type validation.
+
+KEY CAPABILITIES
+
+1. Structured Output: Pydantic v2 schemas with automatic JSON schema validation. Format instructions injected into prompts guide LLM outputs to match exact data structures.
+
+2. Async Performance: RunnableParallel processes large pages by chunking HTML and making parallel LLM calls. SmartScraperMultiGraph handles parallel URL processing; SearchGraph automates web search + multi-page scraping.
+
+3. Error Handling: Built-in reattempt logic with ConditionalNode flow checking. If extraction fails (returns "NA" or empty), automatically reruns with adjusted prompting. Graceful timeout handling with 480-second execution limits.
+
+4. Observability: get_execution_info() returns detailed metrics—token usage, execution time per node, estimated costs—essential for budgeting large-scale operations.
+
+COMPARATIVE ADVANTAGE FOR AVRIL
+
+Traditional scrapers (Beautiful Soup, Selenium) become fragile maintenance nightmares when real estate websites redesign. CSS selectors break. XPath patterns fail. Each site requires custom logic.
+
+ScrapeGraphAI adapts automatically. A single natural language prompt works across Zillow, Redfin, MLS portals, and custom systems without code changes. HTML layout shifts don't require scraper rewrites—the LLM contextually understands content regardless of DOM structure.
+
+For AVRIL's semi-structured data (mixed narrative descriptions + metadata), LLMs excel at extracting semantic meaning humans recognize. Complex property details—from condition descriptions to market context—become queryable without brittle parsing rules.
+
+Scaling to 10,000+ listings becomes economical: Ollama local models eliminate per-request API costs, while parallel graph execution and rate limiting keep operations efficient. Built-in quality assurance reduces false negatives and data corruption.
+
+DEPLOYMENT PATH
+
+1. Define extraction requirements as Pydantic schema
+2. Write natural language prompts describing extraction targets
+3. Run graph against sample URLs to validate output quality
+4. Deploy SmartScraperMultiGraph for parallel batch processing
+5. Monitor execution metrics to optimize costs and accuracy
+
+The paradigm shift from rule-based to semantic extraction positions ScrapeGraphAI as strategic infrastructure for AVRIL's multi-source real estate data aggregation strategy.
