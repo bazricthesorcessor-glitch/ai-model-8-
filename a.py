@@ -1,7 +1,12 @@
 import os
 import subprocess
 from pathlib import Path
+from datetime import datetime
 
+commit_message = (
+    "Update codebase snapshot - "
+    + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+)
 ROOT_DIR = Path.home() / "ai-model-8"
 
 CODEBASE_FILE = ROOT_DIR / "codebase.txt"
@@ -81,7 +86,7 @@ print("Updated tree.txt")
 subprocess.run(["git", "add", "."], cwd=ROOT_DIR)
 
 subprocess.run(
-    ["git", "commit", "-m", "Update codebase snapshot"],
+    ["git", "commit", "-m", commit_message],
     cwd=ROOT_DIR
 )
 
