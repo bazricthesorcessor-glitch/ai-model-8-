@@ -1,8 +1,9 @@
-
+.
 ├── agent
 │   ├── agent_cli.py
 │   ├── agent_config.py
 │   └── agent_daemon.py
+├── a.py
 ├── brain
 │   ├── action_parser.py
 │   ├── brain.py
@@ -16,6 +17,7 @@
 │   └── README.md
 ├── CLEANUP_CHECKLIST.md
 ├── codebase_full.txt
+├── codebase.txt
 ├── COMPLETE_SUMMARY.md
 ├── config
 │   ├── ACTUAL_HYPRLAND_ANALYSIS.md
@@ -45,7 +47,6 @@
 │       ├── config.cpython-314.pyc
 │       ├── connector.cpython-314.pyc
 │       └── __init__.cpython-314.pyc
-├── generate_codebase.py
 ├── HYBRID_SEARCH_IMPLEMENTATION.md
 ├── main.py
 ├── memory
@@ -208,4 +209,4 @@
 ├── whatsapp
 └── WORKFLOW_STRUCTURE.md
 
-50 directories, 159 files
+50 directories, 160 files
