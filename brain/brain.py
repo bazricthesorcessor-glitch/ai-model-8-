@@ -83,7 +83,7 @@ def analyze_intent(user_input: str) -> dict:
     }
 
 
-def generate_action(user_input, context=None, model=None): -> dict:
+def generate_action(user_input, context=None, model=None) -> dict:
     """
     Generate a structured action from user input using LLM and tool schemas.
 
@@ -125,7 +125,7 @@ def generate_action(user_input, context=None, model=None): -> dict:
         prompt = build_action_prompt(user_input, tool_schemas, tier_info, context)
 
         # Step 4: Call LLM to generate action
-        llm_response = get_llm_response(prompt, model="qwen2.5-coder")
+        llm_response = get_llm_response(prompt, model=model)
 
         # Step 5: Parse LLM response into action steps
         action_result = parse_action_response(llm_response, tool_schemas)

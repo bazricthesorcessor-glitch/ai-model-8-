@@ -29666,7 +29666,7 @@ Central nervous system. No decision logic - only mapping.
 from .message import Message, Response
 from brain import analyze_intent, generate_action
 from router.model_selector import select_model
-user_input = message.data.get("user_input", "")
+
 
 def route(message: Message) -> Response:
     """
@@ -29688,8 +29688,11 @@ def route(message: Message) -> Response:
 
     try:
         if message.action == "decide":
-            # Import here to avoid circular dependencies
-            intent = analyze_intent(message.data.get("user_input", ""))
+            from brain import analyze_intent, generate_action
+            from router.model_selector import select_model
+            user_input = message.data.get("user_input", "")
+            selected_model = select_model(user_input)
+            intent = analyze_intent(user_input)
             action = generate_action(
                 message.data.get("user_input", ""),
                 context=message.context
@@ -33903,7 +33906,7 @@ def analyze_intent(user_input: str) -> dict:
     }
 
 
-def generate_action(user_input, context=None, model=None): -> dict:
+def generate_action(user_input, context=None, model=None) -> dict:
     """
     Generate a structured action from user input using LLM and tool schemas.
 
@@ -33945,7 +33948,7 @@ def generate_action(user_input, context=None, model=None): -> dict:
         prompt = build_action_prompt(user_input, tool_schemas, tier_info, context)
 
         # Step 4: Call LLM to generate action
-        llm_response = get_llm_response(prompt, model="qwen2.5-coder")
+        llm_response = get_llm_response(prompt, model=model)
 
         # Step 5: Parse LLM response into action steps
         action_result = parse_action_response(llm_response, tool_schemas)
