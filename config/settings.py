@@ -5,6 +5,15 @@ All system configuration centralized here.
 
 import os
 from datetime import datetime
+from gemma_connector.connector import api
+GEMMA_API = api
+
+
+OLLAMA_ENDPOINTS = {
+    "generate": "/api/generate",
+}
+
+
 
 # ===== SCREEN CONFIGURATION =====
 SCREEN_CONFIG = {
@@ -16,10 +25,10 @@ SCREEN_CONFIG = {
 
 # ===== LLM CONFIGURATION =====
 LLM_CONFIG = {
-    "general_model": "llama3.2:3b-instruct-q5_K_M",
-    "code_model": "qwen2.5-coder:7b-instruct-q4_K_M",
-    "ollama_url": "http://localhost:11434/api/generate",
-    "temperature": 0.1,
+    "router_model": "llama3.2:3b",
+    "general_model": "llama3.2:3b",
+    "thinking_model" : "gemma4:26b",
+    "temperature": 0.3,
     "top_p": 0.9,
     "timeout": 120,
 }
