@@ -14,7 +14,7 @@ Decide whether the task needs:
 - THINK
 
 Rules:
-- FAST = simple commands, short answers, casual chat, UI actions,googling , browsing , play songs , play something on youtube ,etc
+- FAST = simple commands, short answers, casual chat, UI actions, googling, browsing, play songs, play something on youtube, etc
 - THINK = coding, planning, debugging, architecture, deep reasoning
 
 Respond ONLY:
@@ -36,23 +36,23 @@ def select_model(user_input):
         }
     }
 
-   try:
-    response = requests.post(
-        url,
-        json=payload,
-        timeout=LLM_CONFIG["timeout"]
-    )
+    try:
 
-    data = response.json()
+        response = requests.post(
+            url,
+            json=payload,
+            timeout=LLM_CONFIG["timeout"]
+        )
 
-except Exception:
-    return LLM_CONFIG["general_model"]
+        data = response.json()
 
-    data = response.json()
+        result = data.get("response", "").strip().upper()
 
-    result = data.get("response", "").strip().upper()
+        if "THINK" in result:
+            return LLM_CONFIG["thinking_model"]
 
-    if "THINK" in result:
-        return LLM_CONFIG["thinking_model"]
+        return LLM_CONFIG["general_model"]
 
-    return LLM_CONFIG["general_model"]
+    except Exception:
+
+        return LLM_CONFIG["general_model"]
