@@ -1,7 +1,7 @@
-from brain.router import ask_router
+from router.model_selector import select_model
 
-model = ask_router(
-    "hi"
+model = select_model(
+    "can you please write a 1000 words essay"
 )
 
 print(model)

@@ -29443,10 +29443,10 @@ class BrowserTypeTool(Tool):
 FILE: test.py
 ================================================================================
 
-from brain.router import ask_router
+from router.model_selector import select_model
 
-model = ask_router(
-    "hi"
+model = select_model(
+    "can you please write a 1000 words essay"
 )
 
 print(model)
@@ -29664,7 +29664,9 @@ Central nervous system. No decision logic - only mapping.
 """
 
 from .message import Message, Response
-
+from brain import analyze_intent, generate_action
+from router.model_selector import select_model
+user_input = message.data.get("user_input", "")
 
 def route(message: Message) -> Response:
     """
@@ -29687,8 +29689,6 @@ def route(message: Message) -> Response:
     try:
         if message.action == "decide":
             # Import here to avoid circular dependencies
-            from brain import analyze_intent, generate_action
-
             intent = analyze_intent(message.data.get("user_input", ""))
             action = generate_action(
                 message.data.get("user_input", ""),
@@ -30738,13 +30738,6 @@ def select_model(user_input):
         return LLM_CONFIG["general_model"]
 
 
-
-================================================================================
-FILE: router/.README.md.kate-swp
-================================================================================
-
-
-ERROR READING /home/dmannu/ai-model-8/router/.README.md.kate-swp: 'utf-8' codec can't decode byte 0xa6 in position 31: invalid start byte
 
 ================================================================================
 FILE: config/__init__.py
@@ -33910,7 +33903,7 @@ def analyze_intent(user_input: str) -> dict:
     }
 
 
-def generate_action(user_input: str, context: dict = None) -> dict:
+def generate_action(user_input, context=None, model=None): -> dict:
     """
     Generate a structured action from user input using LLM and tool schemas.
 

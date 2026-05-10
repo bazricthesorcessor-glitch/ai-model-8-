@@ -4,7 +4,9 @@ Central nervous system. No decision logic - only mapping.
 """
 
 from .message import Message, Response
-
+from brain import analyze_intent, generate_action
+from router.model_selector import select_model
+user_input = message.data.get("user_input", "")
 
 def route(message: Message) -> Response:
     """
@@ -27,8 +29,6 @@ def route(message: Message) -> Response:
     try:
         if message.action == "decide":
             # Import here to avoid circular dependencies
-            from brain import analyze_intent, generate_action
-
             intent = analyze_intent(message.data.get("user_input", ""))
             action = generate_action(
                 message.data.get("user_input", ""),

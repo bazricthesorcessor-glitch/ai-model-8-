@@ -83,7 +83,7 @@ def analyze_intent(user_input: str) -> dict:
     }
 
 
-def generate_action(user_input: str, context: dict = None) -> dict:
+def generate_action(user_input, context=None, model=None): -> dict:
     """
     Generate a structured action from user input using LLM and tool schemas.
 
