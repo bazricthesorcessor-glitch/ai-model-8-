@@ -14,6 +14,7 @@ from .settings import (
     OS_CONFIG,
     WEB_CONFIG,
 )
+from .paths import Paths, path_of
 
 __all__ = [
     "LLM_CONFIG",
@@ -25,4 +26,6 @@ __all__ = [
     "SCREEN_CONFIG",
     "OS_CONFIG",
     "WEB_CONFIG",
+    "Paths",
+    "path_of",
 ]
