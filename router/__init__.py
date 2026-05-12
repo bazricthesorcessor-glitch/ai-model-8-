@@ -1,9 +1,16 @@
 """
-Router module - central dispatcher for all inter-module communication.
-NO LOGIC - only message routing. Brain, Executor, State are called here only.
+Router module - central service bus for inter-module communication.
+Connects Scout, models, query makers, tools, and runtime services.
+Does not perform cognitive reasoning.
 """
 
 from .message import Message, Response
-from .router import route
+from .router import dispatch, send_to_service, register_service
 
-__all__ = ["Message", "Response", "route"]
+__all__ = [
+    "Message",
+    "Response",
+    "dispatch",
+    "send_to_service",
+    "register_service",
+]

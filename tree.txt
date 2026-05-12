@@ -143,10 +143,10 @@
 ├── README.md
 ├── requirements.txt
 ├── router
-│   ├── advanced_router.py
+│   ├── advanced_router_legacy.py
 │   ├── __init__.py
 │   ├── message.py
-│   ├── model_selector.py
+│   ├── model_selector_legacy.py
 │   ├── __pycache__
 │   │   ├── __init__.cpython-311.pyc
 │   │   ├── __init__.cpython-314.pyc
@@ -155,7 +155,8 @@
 │   │   ├── model_selector.cpython-311.pyc
 │   │   ├── model_selector.cpython-314.pyc
 │   │   ├── router.cpython-311.pyc
-│   │   └── router.cpython-314.pyc
+│   │   ├── router.cpython-314.pyc
+│   │   └── test_router.cpython-314.pyc
 │   ├── README.md
 │   ├── router.py
 │   ├── routing_config.py
@@ -316,4 +317,4 @@
 ├── whatsapp
 └── WORKFLOW_STRUCTURE.md
 
-66 directories, 251 files
+66 directories, 252 files

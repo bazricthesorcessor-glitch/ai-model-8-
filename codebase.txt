@@ -34152,513 +34152,6 @@ Architecture: Modular, type-safe, persistent, searchable, maintainable
 
 
 ================================================================================
-FILE: router/__init__.py
-================================================================================
-
-"""
-Router module - central dispatcher for all inter-module communication.
-NO LOGIC - only message routing. Brain, Executor, State are called here only.
-"""
-
-from .message import Message, Response
-from .router import route
-
-__all__ = ["Message", "Response", "route"]
-
-
-
-================================================================================
-FILE: router/advanced_router.py
-================================================================================
-
-"""
-Advanced Router Module - Pure Dispatch Layer
-Receives messages, routes to modules using config mappings ONLY.
-Zero decision making. Zero interpretation. Pure mapping + forward.
-"""
-
-from typing import Dict, Any, Callable, Optional
-from dataclasses import dataclass
-from .message import Message, Response
-
-
-@dataclass
-class Route:
-    """Single routing rule - maps action+platform to module handler."""
-    action: str                    # action type from message
-    platform: str                  # platform type from message
-    handler: Callable             # function to call
-    description: str = ""         # documentation only
-
-
-class AdvancedRouter:
-    """
-    Deterministic router using config-driven routing table.
-    
-    NO decision logic. NO interpretation. Pure mapping.
-    Message in → Table lookup → Handler call → Result out.
-    """
-
-    def __init__(self, routing_config: Dict[str, Dict[str, Callable]]):
-        """
-        Initialize router with config-driven routing table.
-
-        Args:
-            routing_config: Dict[action][platform] = handler_function
-            
-        Example:
-            {
-                "decide": {
-                    "cli": brain.decide,
-                    "gui": brain.decide_gui,
-                },
-                "execute": {
-                    "cli": executor.execute_cli,
-                    "gui": executor.execute_gui,
-                },
-                "record_state": {
-                    "*": state.update,  # wildcard - any platform
-                },
-            }
-        """
-        self.routing_table = routing_config
-        self.stats = {
-            "total_routed": 0,
-            "routed_by_action": {},
-            "errors": [],
-        }
-
-    def route(self, message: Message) -> Response:
-        """
-        Route message to handler using ONLY config table lookup.
-        Zero interpretation. Zero modification.
-
-        Flow:
-        1. Extract action + platform from message (no interpretation)
-        2. Look up in routing_table[action][platform]
-        3. Call handler with unmodified message
-        4. Return response as-is
-
-        Args:
-            message: Structured message (unmodified)
-
-        Returns:
-            Response object from handler
-        """
-        # Track stats
-        self.stats["total_routed"] += 1
-        if message.action not in self.stats["routed_by_action"]:
-            self.stats["routed_by_action"][message.action] = 0
-        self.stats["routed_by_action"][message.action] += 1
-
-        # Step 1: Extract routing key (no interpretation)
-        action = message.action
-        platform = message.platform
-
-        # Step 2: Look up handler in config (pure mapping)
-        handler = self._lookup_handler(action, platform)
-
-        if handler is None:
-            error_msg = f"No route: action='{action}', platform='{platform}'"
-            self.stats["errors"].append(error_msg)
-            return Response(
-                success=False,
-                action=action,
-                error=error_msg,
-            )
-
-        # Step 3: Call handler with unmodified message
-        try:
-            result = handler(message)
-            return self._wrap_result(result, action)
-        except Exception as e:
-            error_msg = f"Handler error for {action}/{platform}: {str(e)}"
-            self.stats["errors"].append(error_msg)
-            return Response(
-                success=False,
-                action=action,
-                error=error_msg,
-            )
-
-    def _lookup_handler(self, action: str, platform: str) -> Optional[Callable]:
-        """
-        Look up handler in routing table using ONLY table structure.
-        No interpretation. No fallbacks. Pure mapping.
-
-        Lookup order:
-        1. action + exact platform match
-        2. action + wildcard platform match (*)
-        3. None (error)
-
-        Args:
-            action: Message action field
-            platform: Message platform field
-
-        Returns:
-            Handler function or None if not found
-        """
-        # Check if action exists in table
-        if action not in self.routing_table:
-            return None
-
-        action_routes = self.routing_table[action]
-
-        # Try exact platform match
-        if platform in action_routes:
-            return action_routes[platform]
-
-        # Try wildcard match (for platform-agnostic handlers)
-        if "*" in action_routes:
-            return action_routes["*"]
-
-        # No match found
-        return None
-
-    def _wrap_result(self, result: Any, action: str) -> Response:
-        """
-        Wrap handler result in Response if needed.
-        Handler may return Response directly or raw dict.
-
-        Args:
-            result: Return value from handler
-            action: Message action (for context)
-
-        Returns:
-            Response object
-        """
-        if isinstance(result, Response):
-            return result
-
-        # Assume dict result, wrap it
-        if isinstance(result, dict):
-            return Response(
-                success=result.get("success", True),
-                action=action,
-                data=result.get("data", result),
-                error=result.get("error"),
-            )
-
-        # Unexpected result type
-        return Response(
-            success=True,
-            action=action,
-            data={"raw_result": str(result)},
-        )
-
-    def add_route(self, action: str, platform: str, handler: Callable) -> None:
-        """
-        Register a new route dynamically (config update).
-
-        Args:
-            action: Action type
-            platform: Platform type
-            handler: Callable to handle this route
-        """
-        if action not in self.routing_table:
-            self.routing_table[action] = {}
-        self.routing_table[action][platform] = handler
-
-    def get_routing_table(self) -> Dict[str, Dict[str, str]]:
-        """
-        Get human-readable routing table (for debugging/docs).
-
-        Returns:
-            Dict showing all registered routes
-        """
-        result = {}
-        for action, platforms in self.routing_table.items():
-            result[action] = {}
-            for platform, handler in platforms.items():
-                result[action][platform] = handler.__name__ if hasattr(handler, "__name__") else str(handler)
-        return result
-
-    def get_stats(self) -> Dict[str, Any]:
-        """Get router statistics."""
-        return self.stats.copy()
-
-
-def create_router_from_config(config: Dict[str, Any]) -> AdvancedRouter:
-    """
-    Factory function to create router from config dict.
-    Builds routing table by importing and wiring modules.
-
-    Args:
-        config: Config dict with routing rules
-
-    Returns:
-        Initialized AdvancedRouter instance
-    """
-    routing_table = {}
-
-    for action, platforms in config.items():
-        routing_table[action] = {}
-        for platform, handler_spec in platforms.items():
-            if callable(handler_spec):
-                # Already a function
-                routing_table[action][platform] = handler_spec
-            else:
-                # String reference like "brain.decide" - would need dynamic import
-                # For now, assume pre-initialized handlers
-                pass
-
-    return AdvancedRouter(routing_table)
-
-
-
-================================================================================
-FILE: router/test_router.py
-================================================================================
-
-"""
-Router tests - verify routing behavior without decision logic.
-Tests that routing is purely config-based and deterministic.
-"""
-
-from .message import Message, Response
-from .advanced_router import AdvancedRouter
-
-
-# Mock handlers for testing
-def mock_brain_handler(message: Message) -> Response:
-    """Mock brain handler."""
-    return Response(
-        success=True,
-        action=message.action,
-        data={"intent": "test", "input": message.data.get("input")}
-    )
-
-
-def mock_executor_handler(message: Message) -> Response:
-    """Mock executor handler."""
-    return Response(
-        success=True,
-        action=message.action,
-        data={"executed": True, "command": message.data.get("command")}
-    )
-
-
-def mock_state_handler(message: Message) -> Response:
-    """Mock state handler."""
-    return Response(
-        success=True,
-        action=message.action,
-        data={"state_updated": True}
-    )
-
-
-# Test routing table (pure config, no logic)
-TEST_ROUTING_TABLE = {
-    "decide": {
-        "cli": mock_brain_handler,
-        "gui": mock_brain_handler,
-        "*": mock_brain_handler,
-    },
-    "execute": {
-        "cli": mock_executor_handler,
-        "gui": mock_executor_handler,
-    },
-    "record_state": {
-        "*": mock_state_handler,
-    },
-}
-
-
-def test_exact_platform_match():
-    """Test routing to exact platform match."""
-    router = AdvancedRouter(TEST_ROUTING_TABLE)
-    
-    msg = Message(
-        action="decide",
-        platform="cli",
-        mode="visible",
-        data={"input": "hello"}
-    )
-    
-    response = router.route(msg)
-    
-    assert response.success == True
-    assert response.action == "decide"
-    assert response.data["intent"] == "test"
-    print("✓ Exact platform match")
-
-
-def test_wildcard_fallback():
-    """Test routing to wildcard when exact platform not found."""
-    router = AdvancedRouter(TEST_ROUTING_TABLE)
-    
-    msg = Message(
-        action="decide",
-        platform="web",  # Not in decide routes, uses *
-        mode="visible",
-        data={"input": "hello"}
-    )
-    
-    response = router.route(msg)
-    
-    assert response.success == True
-    assert response.action == "decide"
-    print("✓ Wildcard fallback")
-
-
-def test_unknown_action():
-    """Test error handling for unknown action."""
-    router = AdvancedRouter(TEST_ROUTING_TABLE)
-    
-    msg = Message(
-        action="unknown_action",  # Not in routing table
-        platform="cli",
-        mode="visible",
-        data={}
-    )
-    
-    response = router.route(msg)
-    
-    assert response.success == False
-    assert "No route" in response.error
-    print("✓ Unknown action error handling")
-
-
-def test_unknown_platform():
-    """Test error handling for unknown platform."""
-    router = AdvancedRouter(TEST_ROUTING_TABLE)
-    
-    msg = Message(
-        action="execute",  # Exists, but platform not found
-        platform="unknown",  # Not in execute routes, no wildcard
-        mode="visible",
-        data={}
-    )
-    
-    response = router.route(msg)
-    
-    assert response.success == False
-    assert "No route" in response.error
-    print("✓ Unknown platform error handling")
-
-
-def test_message_unmodified():
-    """Test that message is passed unmodified to handler."""
-    
-    captured_message = None
-    
-    def capture_handler(message: Message) -> Response:
-        nonlocal captured_message
-        captured_message = message
-        return Response(success=True, action="test", data={})
-    
-    router = AdvancedRouter({
-        "test_action": {
-            "test_platform": capture_handler
-        }
-    })
-    
-    original_msg = Message(
-        action="test_action",
-        platform="test_platform",
-        mode="visible",
-        data={"key": "value"},
-        context={"prev": "data"}
-    )
-    
-    router.route(original_msg)
-    
-    assert captured_message.data == original_msg.data
-    assert captured_message.context == original_msg.context
-    print("✓ Message unmodified")
-
-
-def test_stats_tracking():
-    """Test that router tracks statistics."""
-    router = AdvancedRouter(TEST_ROUTING_TABLE)
-    
-    # Route several messages
-    for i in range(3):
-        msg = Message(
-            action="decide",
-            platform="cli",
-            mode="visible",
-            data={}
-        )
-        router.route(msg)
-    
-    # Route one unknown
-    msg = Message(
-        action="unknown",
-        platform="cli",
-        mode="visible",
-        data={}
-    )
-    router.route(msg)
-    
-    stats = router.get_stats()
-    
-    assert stats["total_routed"] == 4
-    assert stats["routed_by_action"]["decide"] == 3
-    assert len(stats["errors"]) == 1
-    print("✓ Stats tracking")
-
-
-def test_routing_table_inspection():
-    """Test that routing table can be inspected."""
-    router = AdvancedRouter(TEST_ROUTING_TABLE)
-    
-    table = router.get_routing_table()
-    
-    assert "decide" in table
-    assert "cli" in table["decide"]
-    assert "execute" in table
-    print("✓ Routing table inspection")
-
-
-def test_add_route_dynamically():
-    """Test adding routes at runtime."""
-    router = AdvancedRouter(TEST_ROUTING_TABLE)
-    
-    def new_handler(message: Message) -> Response:
-        return Response(success=True, action="custom", data={})
-    
-    router.add_route("custom_action", "cli", new_handler)
-    
-    msg = Message(
-        action="custom_action",
-        platform="cli",
-        mode="visible",
-        data={}
-    )
-    
-    response = router.route(msg)
-    
-    assert response.success == True
-    assert response.action == "custom"
-    print("✓ Dynamic route addition")
-
-
-def run_all_tests():
-    """Run all router tests."""
-    print("\n" + "="*50)
-    print("Advanced Router Tests")
-    print("="*50 + "\n")
-    
-    test_exact_platform_match()
-    test_wildcard_fallback()
-    test_unknown_action()
-    test_unknown_platform()
-    test_message_unmodified()
-    test_stats_tracking()
-    test_routing_table_inspection()
-    test_add_route_dynamically()
-    
-    print("\n" + "="*50)
-    print("✓ All tests passed")
-    print("="*50 + "\n")
-
-
-if __name__ == "__main__":
-    run_all_tests()
-
-
-
-================================================================================
 FILE: router/README.md
 ================================================================================
 
@@ -34974,104 +34467,6 @@ elif message.action == "my_new_action":
 
 
 ================================================================================
-FILE: router/model_selector.py
-================================================================================
-
-import requests
-from groq import Groq
-
-from config.settings import (
-    LLM_CONFIG,
-)
-
-ROUTER_PROMPT = """
-You are a routing AI.
-
-Decide whether the task needs:
-- FAST
-- THINK
-
-Rules:
-- FAST = simple commands, short answers, casual chat, UI actions, googling, browsing, play songs, play something on youtube, etc
-- THINK = coding, planning, debugging, architecture, deep reasoning
-
-Respond ONLY:
-FAST
-or
-THINK
-"""
-
-def select_model(user_input):
-    """
-    Select routing model with fallback strategy:
-    1. Try groq
-    2. On error, fallback to llama3.2:3b
-    """
-
-    # Strategy 1: Try Groq first
-    try:
-        from api import api as groq_api_key
-
-        client = Groq(api_key=groq_api_key)
-
-        response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"{ROUTER_PROMPT}\n\nTask:\n{user_input}"
-                }
-            ],
-            temperature=0.1
-        )
-
-        result = response.choices[0].message.content.strip().upper()
-        print("✓ Groq API started successfully")
-
-        if "THINK" in result:
-            return "groq"
-
-        return "groq"
-
-    except Exception as e:
-        print(f"✗ Groq failed: {str(e)}")
-        print("→ Falling back to llama3.2:3b")
-
-        # Strategy 2: Fallback to llama3.2:3b via OLLAMA
-        try:
-            url = LLM_CONFIG["ollama_url"]
-            payload = {
-                "model": "llama3.2:3b",
-                "prompt": f"{ROUTER_PROMPT}\n\nTask:\n{user_input}",
-                "stream": False,
-                "options": {
-                    "temperature": 0.1
-                }
-            }
-
-            response = requests.post(
-                url,
-                json=payload,
-                timeout=LLM_CONFIG["timeout"]
-            )
-
-            data = response.json()
-            result = data.get("response", "").strip().upper()
-            print("✓ llama3.2:3b started successfully")
-
-            if "THINK" in result:
-                return "llama3.2:3b"
-
-            return "llama3.2:3b"
-
-        except Exception as e2:
-            print(f"✗ llama3.2:3b also failed: {str(e2)}")
-            print("→ Using llama3.2:3b as final fallback")
-            return "llama3.2:3b"
-
-
-
-================================================================================
 FILE: router/message.py
 ================================================================================
 
@@ -35354,6 +34749,560 @@ def get_timeout(service_name: str) -> int:
 def get_max_retries(service_name: str) -> int:
     """Get max retry count for service."""
     return SERVICES.get(service_name, {}).get("max_retries", 3)
+
+
+
+================================================================================
+FILE: router/__init__.py
+================================================================================
+
+"""
+Router module - central service bus for inter-module communication.
+Connects Scout, models, query makers, tools, and runtime services.
+Does not perform cognitive reasoning.
+"""
+
+from .message import Message, Response
+from .router import dispatch, send_to_service, register_service
+
+__all__ = [
+    "Message",
+    "Response",
+    "dispatch",
+    "send_to_service",
+    "register_service",
+]
+
+
+
+================================================================================
+FILE: router/advanced_router_legacy.py
+================================================================================
+
+"""
+Advanced Router Module - Pure Dispatch Layer
+Receives messages, routes to modules using config mappings ONLY.
+Zero decision making. Zero interpretation. Pure mapping + forward.
+"""
+
+from typing import Dict, Any, Callable, Optional
+from dataclasses import dataclass
+from .message import Message, Response
+
+
+@dataclass
+class Route:
+    """Single routing rule - maps action+platform to module handler."""
+    action: str                    # action type from message
+    platform: str                  # platform type from message
+    handler: Callable             # function to call
+    description: str = ""         # documentation only
+
+
+class AdvancedRouter:
+    """
+    Deterministic router using config-driven routing table.
+    
+    NO decision logic. NO interpretation. Pure mapping.
+    Message in → Table lookup → Handler call → Result out.
+    """
+
+    def __init__(self, routing_config: Dict[str, Dict[str, Callable]]):
+        """
+        Initialize router with config-driven routing table.
+
+        Args:
+            routing_config: Dict[action][platform] = handler_function
+            
+        Example:
+            {
+                "decide": {
+                    "cli": brain.decide,
+                    "gui": brain.decide_gui,
+                },
+                "execute": {
+                    "cli": executor.execute_cli,
+                    "gui": executor.execute_gui,
+                },
+                "record_state": {
+                    "*": state.update,  # wildcard - any platform
+                },
+            }
+        """
+        self.routing_table = routing_config
+        self.stats = {
+            "total_routed": 0,
+            "routed_by_action": {},
+            "errors": [],
+        }
+
+    def route(self, message: Message) -> Response:
+        """
+        Route message to handler using ONLY config table lookup.
+        Zero interpretation. Zero modification.
+
+        Flow:
+        1. Extract action + platform from message (no interpretation)
+        2. Look up in routing_table[action][platform]
+        3. Call handler with unmodified message
+        4. Return response as-is
+
+        Args:
+            message: Structured message (unmodified)
+
+        Returns:
+            Response object from handler
+        """
+        # Track stats
+        self.stats["total_routed"] += 1
+        if message.action not in self.stats["routed_by_action"]:
+            self.stats["routed_by_action"][message.action] = 0
+        self.stats["routed_by_action"][message.action] += 1
+
+        # Step 1: Extract routing key (no interpretation)
+        action = message.action
+        platform = message.platform
+
+        # Step 2: Look up handler in config (pure mapping)
+        handler = self._lookup_handler(action, platform)
+
+        if handler is None:
+            error_msg = f"No route: action='{action}', platform='{platform}'"
+            self.stats["errors"].append(error_msg)
+            return Response(
+                success=False,
+                action=action,
+                error=error_msg,
+            )
+
+        # Step 3: Call handler with unmodified message
+        try:
+            result = handler(message)
+            return self._wrap_result(result, action)
+        except Exception as e:
+            error_msg = f"Handler error for {action}/{platform}: {str(e)}"
+            self.stats["errors"].append(error_msg)
+            return Response(
+                success=False,
+                action=action,
+                error=error_msg,
+            )
+
+    def _lookup_handler(self, action: str, platform: str) -> Optional[Callable]:
+        """
+        Look up handler in routing table using ONLY table structure.
+        No interpretation. No fallbacks. Pure mapping.
+
+        Lookup order:
+        1. action + exact platform match
+        2. action + wildcard platform match (*)
+        3. None (error)
+
+        Args:
+            action: Message action field
+            platform: Message platform field
+
+        Returns:
+            Handler function or None if not found
+        """
+        # Check if action exists in table
+        if action not in self.routing_table:
+            return None
+
+        action_routes = self.routing_table[action]
+
+        # Try exact platform match
+        if platform in action_routes:
+            return action_routes[platform]
+
+        # Try wildcard match (for platform-agnostic handlers)
+        if "*" in action_routes:
+            return action_routes["*"]
+
+        # No match found
+        return None
+
+    def _wrap_result(self, result: Any, action: str) -> Response:
+        """
+        Wrap handler result in Response if needed.
+        Handler may return Response directly or raw dict.
+
+        Args:
+            result: Return value from handler
+            action: Message action (for context)
+
+        Returns:
+            Response object
+        """
+        if isinstance(result, Response):
+            return result
+
+        # Assume dict result, wrap it
+        if isinstance(result, dict):
+            return Response(
+                success=result.get("success", True),
+                action=action,
+                data=result.get("data", result),
+                error=result.get("error"),
+            )
+
+        # Unexpected result type
+        return Response(
+            success=True,
+            action=action,
+            data={"raw_result": str(result)},
+        )
+
+    def add_route(self, action: str, platform: str, handler: Callable) -> None:
+        """
+        Register a new route dynamically (config update).
+
+        Args:
+            action: Action type
+            platform: Platform type
+            handler: Callable to handle this route
+        """
+        if action not in self.routing_table:
+            self.routing_table[action] = {}
+        self.routing_table[action][platform] = handler
+
+    def get_routing_table(self) -> Dict[str, Dict[str, str]]:
+        """
+        Get human-readable routing table (for debugging/docs).
+
+        Returns:
+            Dict showing all registered routes
+        """
+        result = {}
+        for action, platforms in self.routing_table.items():
+            result[action] = {}
+            for platform, handler in platforms.items():
+                result[action][platform] = handler.__name__ if hasattr(handler, "__name__") else str(handler)
+        return result
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get router statistics."""
+        return self.stats.copy()
+
+
+def create_router_from_config(config: Dict[str, Any]) -> AdvancedRouter:
+    """
+    Factory function to create router from config dict.
+    Builds routing table by importing and wiring modules.
+
+    Args:
+        config: Config dict with routing rules
+
+    Returns:
+        Initialized AdvancedRouter instance
+    """
+    routing_table = {}
+
+    for action, platforms in config.items():
+        routing_table[action] = {}
+        for platform, handler_spec in platforms.items():
+            if callable(handler_spec):
+                # Already a function
+                routing_table[action][platform] = handler_spec
+            else:
+                # String reference like "brain.decide" - would need dynamic import
+                # For now, assume pre-initialized handlers
+                pass
+
+    return AdvancedRouter(routing_table)
+
+
+
+================================================================================
+FILE: router/model_selector_legacy.py
+================================================================================
+
+import requests
+from groq import Groq
+
+from config.settings import (
+    LLM_CONFIG,
+)
+
+ROUTER_PROMPT = """
+You are a routing AI.
+
+Decide whether the task needs:
+- FAST
+- THINK
+
+Rules:
+- FAST = simple commands, short answers, casual chat, UI actions, googling, browsing, play songs, play something on youtube, etc
+- THINK = coding, planning, debugging, architecture, deep reasoning
+
+Respond ONLY:
+FAST
+or
+THINK
+"""
+
+def select_model(user_input):
+    """
+    Select routing model with fallback strategy:
+    1. Try groq
+    2. On error, fallback to llama3.2:3b
+    """
+
+    # Strategy 1: Try Groq first
+    try:
+        from api import api as groq_api_key
+
+        client = Groq(api_key=groq_api_key)
+
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"{ROUTER_PROMPT}\n\nTask:\n{user_input}"
+                }
+            ],
+            temperature=0.1
+        )
+
+        result = response.choices[0].message.content.strip().upper()
+        print("✓ Groq API started successfully")
+
+        if "THINK" in result:
+            return "groq"
+
+        return "groq"
+
+    except Exception as e:
+        print(f"✗ Groq failed: {str(e)}")
+        print("→ Falling back to llama3.2:3b")
+
+        # Strategy 2: Fallback to llama3.2:3b via OLLAMA
+        try:
+            url = LLM_CONFIG["ollama_url"]
+            payload = {
+                "model": "llama3.2:3b",
+                "prompt": f"{ROUTER_PROMPT}\n\nTask:\n{user_input}",
+                "stream": False,
+                "options": {
+                    "temperature": 0.1
+                }
+            }
+
+            response = requests.post(
+                url,
+                json=payload,
+                timeout=LLM_CONFIG["timeout"]
+            )
+
+            data = response.json()
+            result = data.get("response", "").strip().upper()
+            print("✓ llama3.2:3b started successfully")
+
+            if "THINK" in result:
+                return "llama3.2:3b"
+
+            return "llama3.2:3b"
+
+        except Exception as e2:
+            print(f"✗ llama3.2:3b also failed: {str(e2)}")
+            print("→ Using llama3.2:3b as final fallback")
+            return "llama3.2:3b"
+
+
+
+================================================================================
+FILE: router/test_router.py
+================================================================================
+
+"""
+Router tests - verify service bus behavior and message dispatch.
+Tests the new service registry + dispatcher pattern.
+"""
+
+from router import Message, Response, dispatch, send_to_service, register_service
+
+
+def fake_executor(message: Message) -> Response:
+    """Fake executor service handler."""
+    return Response(
+        source="executor",
+        success=True,
+        result={"received": message.payload}
+    )
+
+
+def fake_query_maker(message: Message) -> Response:
+    """Fake query maker service handler."""
+    return Response(
+        source="query_maker",
+        success=True,
+        result={"queries": ["query1", "query2"]}
+    )
+
+
+def test_dispatch_registered_service():
+    """Test dispatching message to a registered service."""
+    # Clear and register fresh
+    register_service("executor", fake_executor)
+
+    msg = Message(
+        source="scout",
+        target="executor",
+        action="dispatch_tool",
+        payload={"tool": "screenshot"}
+    )
+
+    response = dispatch(msg)
+
+    assert response.success is True
+    assert response.source == "executor"
+    assert response.result["received"]["tool"] == "screenshot"
+    print("✓ Dispatch registered service")
+
+
+def test_dispatch_unknown_service():
+    """Test error when dispatching to unregistered service."""
+    msg = Message(
+        source="scout",
+        target="nonexistent_service",
+        action="dispatch_tool",
+        payload={}
+    )
+
+    response = dispatch(msg)
+
+    assert response.success is False
+    assert response.error is not None
+    assert "nonexistent_service" in response.error or "not found" in response.error.lower()
+    print("✓ Unknown service error")
+
+
+def test_multiple_registered_services():
+    """Test registering and dispatching to multiple services."""
+    register_service("executor", fake_executor)
+    register_service("query_maker", fake_query_maker)
+
+    # Dispatch to executor
+    msg1 = Message(
+        source="scout",
+        target="executor",
+        action="dispatch_tool",
+        payload={"cmd": "ls"}
+    )
+    response1 = dispatch(msg1)
+    assert response1.source == "executor"
+    assert response1.success is True
+
+    # Dispatch to query_maker
+    msg2 = Message(
+        source="scout",
+        target="query_maker",
+        action="run_query_maker",
+        payload={"intent": "list files"}
+    )
+    response2 = dispatch(msg2)
+    assert response2.source == "query_maker"
+    assert response2.success is True
+    print("✓ Multiple registered services")
+
+
+def test_message_fields_preserved():
+    """Test that message fields are preserved through dispatch."""
+    def capture_handler(message: Message) -> Response:
+        # Return the full message to test field preservation
+        return Response(
+            source="executor",
+            success=True,
+            result={
+                "payload": message.payload,
+                "context": message.context,
+                "action": message.action
+            }
+        )
+
+    register_service("executor", capture_handler)
+
+    msg = Message(
+        source="scout",
+        target="executor",
+        action="dispatch_tool",
+        payload={"key": "value"},
+        context={"prev_result": "data"}
+    )
+
+    response = dispatch(msg)
+
+    # Handler preserves all message fields
+    assert response.result["payload"]["key"] == "value"
+    assert response.result["context"]["prev_result"] == "data"
+    assert response.result["action"] == "dispatch_tool"
+    print("✓ Message fields preserved")
+
+
+def test_handler_exception_handling():
+    """Test that service exceptions are caught and returned as errors."""
+    def failing_handler(message: Message) -> Response:
+        raise ValueError("Handler failed")
+
+    register_service("failing_service", failing_handler)
+
+    msg = Message(
+        source="scout",
+        target="failing_service",
+        action="dispatch_tool",
+        payload={}
+    )
+
+    response = dispatch(msg)
+
+    assert response.success is False
+    assert response.error is not None
+    assert "failed" in response.error.lower() or "exception" in response.error.lower()
+    print("✓ Handler exception handling")
+
+
+def test_service_returns_non_response():
+    """Test that non-Response returns are wrapped."""
+    def raw_handler(message: Message) -> dict:
+        return {"data": "raw"}
+
+    register_service("raw_service", raw_handler)
+
+    msg = Message(
+        source="scout",
+        target="raw_service",
+        action="dispatch_tool",
+        payload={}
+    )
+
+    response = dispatch(msg)
+
+    # Should be wrapped in Response
+    assert isinstance(response, Response)
+    print("✓ Non-Response wrapping")
+
+
+def run_all_tests():
+    """Run all router tests."""
+    print("\n" + "="*50)
+    print("Router Service Bus Tests")
+    print("="*50 + "\n")
+
+    test_dispatch_registered_service()
+    test_dispatch_unknown_service()
+    test_multiple_registered_services()
+    test_message_fields_preserved()
+    test_handler_exception_handling()
+    test_service_returns_non_response()
+
+    print("\n" + "="*50)
+    print("✓ All tests passed")
+    print("="*50 + "\n")
+
+
+if __name__ == "__main__":
+    run_all_tests()
 
 
 
