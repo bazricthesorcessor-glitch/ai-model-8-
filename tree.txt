@@ -32,13 +32,16 @@
 │   ├── ACTUAL_HYPRLAND_ANALYSIS.md
 │   ├── HYPRLAND_CONFIG_GUIDE.md
 │   ├── __init__.py
+│   ├── paths.py
 │   ├── __pycache__
 │   │   ├── __init__.cpython-311.pyc
 │   │   ├── __init__.cpython-314.pyc
+│   │   ├── paths.cpython-314.pyc
 │   │   ├── settings.cpython-311.pyc
 │   │   └── settings.cpython-314.pyc
 │   ├── README.md
 │   ├── settings.py
+│   ├── shell.example.json
 │   └── shell.json
 ├── CONSOLIDATION_GUIDE.md
 ├── DEPENDENCY_ANALYSIS.md
@@ -64,26 +67,69 @@
 ├── main.py
 ├── memory
 │   ├── agent_history_logger.py
+│   ├── cleaner.py
+│   ├── compiler.py
 │   ├── conversation_logger.py
 │   ├── core.py
+│   ├── data
+│   │   ├── active
+│   │   │   └── daily_logs
+│   │   │       └── 2026-05-12.jsonl
+│   │   ├── agents
+│   │   ├── archive
+│   │   │   ├── conversations
+│   │   │   ├── failures
+│   │   │   ├── projects
+│   │   │   ├── semantic
+│   │   │   └── sessions
+│   │   ├── identity
+│   │   │   ├── important_memory.json
+│   │   │   └── user_preferences.json
+│   │   ├── indexes
+│   │   ├── semantic
+│   │   │   └── keyword_index.json
+│   │   ├── state
+│   │   │   ├── agents_state.json
+│   │   │   └── current_state.json
+│   │   ├── temporary
+│   │   │   ├── deadlines.json
+│   │   │   ├── events.json
+│   │   │   └── exams.json
+│   │   └── tools
+│   │       └── registry.json
 │   ├── executermemorydesign.md
 │   ├── __init__.py
 │   ├── memory.py
+│   ├── paths.py
 │   ├── __pycache__
+│   │   ├── cleaner.cpython-314.pyc
+│   │   ├── compiler.cpython-314.pyc
 │   │   ├── core.cpython-311.pyc
 │   │   ├── core.cpython-314.pyc
 │   │   ├── __init__.cpython-311.pyc
 │   │   ├── __init__.cpython-314.pyc
 │   │   ├── memory.cpython-311.pyc
-│   │   └── memory.cpython-314.pyc
+│   │   ├── memory.cpython-314.pyc
+│   │   ├── paths.cpython-314.pyc
+│   │   ├── reader.cpython-314.pyc
+│   │   ├── schemas.cpython-314.pyc
+│   │   ├── search.cpython-314.pyc
+│   │   └── writer.cpython-314.pyc
+│   ├── reader.py
 │   ├── README.md
+│   ├── schemas.py
 │   ├── scout_history_logger.py
 │   ├── scout_memory_manager.py
 │   ├── scout_memory.py
+│   ├── search.py
 │   ├── steps.md.txt
 │   ├── structure.md.txt
 │   ├── test_memory.py
-│   └── unified_memory.py
+│   ├── unified_memory.py
+│   └── writer.py
+├── MEMORY_PHASE1_COMPLETE.md
+├── MEMORY_PHASE1_FINAL.md
+├── MEMORY_QUICK_START.md
 ├── os
 │   ├── hyprland_ai_agent.py
 │   ├── hyprland_config.sh
@@ -98,6 +144,7 @@
 ├── __pycache__
 │   ├── api.cpython-311.pyc
 │   └── api.cpython-314.pyc
+├── QUERY_MAKER_INTEGRATION.md
 ├── README.md
 ├── requirements.txt
 ├── router
@@ -121,6 +168,7 @@
 ├── scout
 │   └── scout_context_router.py
 ├── SCOUT_MEMORY_DOCUMENTATION.md
+├── SCOUT_MEMORY_SYSTEM.md
 ├── scrapegraphai_detailed_analysis.md
 ├── scrapegraphai_executive_summary.txt
 ├── scrapegraphai_repository_index.txt
@@ -273,4 +321,4 @@
 ├── whatsapp
 └── WORKFLOW_STRUCTURE.md
 
-52 directories, 222 files
+68 directories, 254 files

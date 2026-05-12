@@ -1,0 +1,28 @@
+{
+  "items": [
+    {
+      "content": "Scout Memory System Foundation (May 12, 2026): 4-part persistent memory with paths, writer, reader, compiler. Ready for query maker integration.",
+      "category": "system_milestone",
+      "tags": [
+        "memory",
+        "scout",
+        "architecture",
+        "persistent"
+      ],
+      "saved_at": "2026-05-12T21:24:33.992455"
+    },
+    {
+      "content": "Scout Memory System Foundation Complete (May 12, 2026): 7 core modules, 142KB code, 14-day active memory, multi-archive system, advanced search, auto-cleanup. Ready for Query Maker integration.",
+      "category": "system_architecture",
+      "tags": [
+        "scout",
+        "memory",
+        "foundation",
+        "complete",
+        "phase1"
+      ],
+      "priority": "critical",
+      "saved_at": "2026-05-12T21:28:00.878245"
+    }
+  ]
+}
