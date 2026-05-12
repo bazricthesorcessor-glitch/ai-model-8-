@@ -28,9 +28,11 @@
 │   │   ├── observer.cpython-314.pyc
 │   │   ├── planner.cpython-314.pyc
 │   │   ├── router.cpython-314.pyc
-│   │   └── supervisor.cpython-314.pyc
+│   │   ├── supervisor.cpython-314.pyc
+│   │   └── test_supervisor.cpython-314.pyc
 │   ├── README.md
-│   └── supervisor.py
+│   ├── supervisor.py
+│   └── test_supervisor.py
 ├── CAELESTIA_DOCUMENTATION.md
 ├── CLEANUP_CHECKLIST.md
 ├── codebase_full.txt
@@ -331,4 +333,4 @@
 ├── whatsapp
 └── WORKFLOW_STRUCTURE.md
 
-67 directories, 265 files
+67 directories, 267 files

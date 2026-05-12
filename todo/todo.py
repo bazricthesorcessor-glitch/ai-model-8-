@@ -11,7 +11,7 @@ import os
 from datetime import datetime
 
 # Import new schema classes
-from .schemas import ExecutionPlan, ExecutionStep, StepObservation, StepStatus
+from .schemas import ExecutionPlan, ExecutionStep, StepObservation, StepStatus, PlanStatus
 
 
 class TaskStatus(Enum):
@@ -203,7 +203,7 @@ class TodoManager:
         Returns:
             Updated plan with status changed to IN_PROGRESS
         """
-        plan.status = "in_progress"
+        plan.status = PlanStatus.IN_PROGRESS
         plan.started_at = datetime.now().isoformat()
 
         # Mark first step as in progress if not already
@@ -244,7 +244,7 @@ class TodoManager:
                     step.status = StepStatus.IN_PROGRESS
                     step.started_at = datetime.now().isoformat()
                     plan.current_step_id = step_id
-                    plan.status = "in_progress"
+                    plan.status = PlanStatus.IN_PROGRESS
                     return True
         return False
 
@@ -459,6 +459,9 @@ class TodoManager:
                     actual_result=step_data.get("actual_result"),
                     error=step_data.get("error"),
                     depends_on=step_data.get("depends_on", []),
+                    last_observation=step_data.get("last_observation"),
+                    started_at=step_data.get("started_at"),
+                    completed_at=step_data.get("completed_at"),
                 )
                 plan.steps.append(step)
 

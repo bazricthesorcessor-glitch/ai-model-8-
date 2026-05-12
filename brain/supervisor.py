@@ -17,7 +17,6 @@ from todo.schemas import ExecutionPlan, ExecutionStep, StepObservation, StepStat
 from todo import TodoManager
 from brain.observer import observe_step_result
 from router import Message
-import uuid
 
 
 class Supervisor:
@@ -177,28 +176,24 @@ class Supervisor:
         self,
         plan: ExecutionPlan,
         step: Optional[ExecutionStep] = None,
-    ) -> Tuple[ExecutionPlan, str, Optional[StepObservation]]:
+    ) -> Tuple[ExecutionPlan, str, Optional[Message]]:
         """
-        Execute a single step of the plan.
+        Prepare a single step of the plan for execution.
 
-        Does:
+        Does pre-dispatch bookkeeping:
         1. Mark step started
-        2. Prepare message
-        3. (Caller will dispatch to router)
-        4. Handle response
-        5. Observe results
-        6. Update todo
-        7. Decide next action
+        2. Prepare router Message
 
-        Note: This handles the "before dispatch" and "after dispatch" bookkeeping.
-        The actual router dispatch happens outside.
+        The caller will dispatch the Message and then call finalize_step() with the response.
 
         Args:
             plan: Execution plan
             step: Optional step (defaults to current/next step)
 
         Returns:
-            Tuple of (updated_plan, next_action, observation)
+            Tuple of (updated_plan, next_action, message_to_dispatch)
+            - next_action: "dispatch" if message is ready, "stop" if blocked
+            - message: Router Message ready to dispatch, or None if blocked
         """
         # Get step if not provided
         if not step:
@@ -217,9 +212,7 @@ class Supervisor:
         if not message:
             return plan, "stop", None
 
-        # Return plan + message for caller to dispatch
-        # (Actual dispatch happens in scout/main loop)
-        return plan, "dispatch", None
+        return plan, "dispatch", message
 
     def finalize_step(
         self,
