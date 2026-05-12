@@ -12,6 +12,8 @@
 │   ├── brain.py
 │   ├── __init__.py
 │   ├── llm.py
+│   ├── observer.py
+│   ├── planner.py
 │   ├── __pycache__
 │   │   ├── action_parser.cpython-311.pyc
 │   │   ├── action_parser.cpython-314.pyc
@@ -21,6 +23,8 @@
 │   │   ├── __init__.cpython-314.pyc
 │   │   ├── llm.cpython-311.pyc
 │   │   ├── llm.cpython-314.pyc
+│   │   ├── observer.cpython-314.pyc
+│   │   ├── planner.cpython-314.pyc
 │   │   └── router.cpython-314.pyc
 │   └── README.md
 ├── CAELESTIA_DOCUMENTATION.md
@@ -138,7 +142,8 @@
 │   └── window_manager.py
 ├── __pycache__
 │   ├── api.cpython-311.pyc
-│   └── api.cpython-314.pyc
+│   ├── api.cpython-314.pyc
+│   └── main.cpython-314.pyc
 ├── QUERY_MAKER_INTEGRATION.md
 ├── README.md
 ├── requirements.txt
@@ -193,6 +198,11 @@
 │   └── test_integration.py
 ├── todo
 │   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-314.pyc
+│   │   ├── schemas.cpython-314.pyc
+│   │   └── todo.cpython-314.pyc
+│   ├── schemas.py
 │   └── todo.py
 ├── tools
 │   ├── browser
@@ -317,4 +327,4 @@
 ├── whatsapp
 └── WORKFLOW_STRUCTURE.md
 
-66 directories, 252 files
+67 directories, 261 files

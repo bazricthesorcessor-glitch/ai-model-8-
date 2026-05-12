@@ -10,9 +10,9 @@ from datetime import datetime
 from typing import Dict, Any, Tuple
 
 # Core modules
-from router import route
+from router import dispatch, send_to_service
 from router.message import Message, Response
-from brain import analyze_intent, check_safety, generate_action
+from brain import analyze_intent, check_safety, generate_action_legacy
 from executor import execute
 from state import get_state as get_system_state, clear_state as clear_system_state
 from memory import MEMORY
@@ -160,7 +160,7 @@ def process_user_input(user_input: str) -> Tuple[bool, Dict[str, Any]]:
     # Step 3: Generate action
     print_section("Step 3: Action Generation")
     try:
-        action = generate_action(user_input, MEMORY.get_context())
+        action = generate_action_legacy(user_input, MEMORY.get_context())
         print(f"  Action Type: {action.get('action', 'N/A')}")
         print(f"  Platform: {action.get('platform', 'N/A')}")
         print(f"  Mode: {action.get('mode', 'N/A')}")

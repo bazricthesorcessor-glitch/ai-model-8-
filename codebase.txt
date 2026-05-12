@@ -29439,341 +29439,6 @@ prompt-toolkit>=3.0.0
 
 
 ================================================================================
-FILE: main.py
-================================================================================
-
-#!/mnt/D/venvs/avril-main/bin/python3
-"""
-Integration entry point for the modular AI assistant system.
-Demonstrates complete flow: user input → brain decision → execution → state tracking.
-"""
-
-import sys
-import json
-from datetime import datetime
-from typing import Dict, Any, Tuple
-
-# Core modules
-from router import route
-from router.message import Message, Response
-from brain import analyze_intent, check_safety, generate_action
-from executor import execute
-from state import get_state as get_system_state, clear_state as clear_system_state
-from memory import MEMORY
-
-
-def print_header(text: str) -> None:
-    """Print formatted header."""
-    print(f"\n{'=' * 60}")
-    print(f"  {text}")
-    print(f"{'=' * 60}\n")
-
-
-def print_section(title: str, content: str = "") -> None:
-    """Print formatted section."""
-    print(f"\n→ {title}")
-    if content:
-        print(f"  {content}")
-
-
-def format_result(data: Dict[str, Any]) -> str:
-    """Format result for display."""
-    return json.dumps(data, indent=2)
-
-
-def get_user_approval(action: Dict[str, Any]) -> bool:
-    """Ask user for approval of action."""
-    print_section("⚠ APPROVAL REQUIRED", f"Action: {action.get('action', 'unknown')}")
-
-    if action.get("steps"):
-        print("  Steps:")
-        for i, step in enumerate(action["steps"], 1):
-            print(f"    {i}. {step.get('tool', 'unknown')} - {step.get('data', {})}")
-
-    response = input("\n  Approve? [y/n]: ").strip().lower()
-    return response == "y"
-
-
-def display_state_summary() -> None:
-    """Display current system state summary."""
-    state = get_system_state()
-
-    if isinstance(state, dict):
-        if state.get("current_action"):
-            print_section(
-                "Current Action",
-                f"{state.get('current_action', 'N/A')}"
-            )
-
-        if state.get("execution_history"):
-            print_section("Recent Execution History")
-            for item in state["execution_history"][-3:]:  # Last 3 items
-                action = item.get('action', 'N/A')
-                result = item.get('result', {})
-                print(f"  → {action}: {result}")
-
-        if state.get("status") != "idle":
-            print_section("System Status", f"Current: {state.get('status', 'N/A')}")
-
-
-def display_memory_info() -> None:
-    """Display memory system info."""
-    memory_state = MEMORY.get_state()
-
-    if memory_state.get("current_task"):
-        task = memory_state["current_task"]
-        print_section("Task Memory", f"{task.get('name', 'N/A')} ({task.get('status', 'N/A')})")
-
-    if memory_state.get("current_status") != "idle":
-        print_section("Memory Status", memory_state.get("current_status", "N/A"))
-
-    if memory_state.get("context"):
-        print_section("Context Keys", str(list(memory_state["context"].keys())))
-
-
-def main_interactive() -> None:
-    """Interactive mode: loop until user quits."""
-    print_header("AI Assistant - Interactive Mode")
-    print("Type your command or ask a question. Type 'exit' to quit, 'status' to see state.\n")
-
-    while True:
-        try:
-            user_input = input("You: ").strip()
-
-            if not user_input:
-                continue
-
-            if user_input.lower() == "exit":
-                print_header("Goodbye")
-                break
-
-            if user_input.lower() == "status":
-                display_state_summary()
-                display_memory_info()
-                continue
-
-            if user_input.lower() == "memory":
-                print(MEMORY.debug_view())
-                continue
-
-            # Process user input through system
-            process_user_input(user_input)
-
-        except KeyboardInterrupt:
-            print("\n\nGoodbye")
-            break
-        except Exception as e:
-            print(f"\n✗ Error: {e}")
-            import traceback
-            traceback.print_exc()
-
-
-def process_user_input(user_input: str) -> Tuple[bool, Dict[str, Any]]:
-    """
-    Process user input through the full system pipeline.
-
-    Returns:
-        (success: bool, result: Dict[str, Any])
-    """
-    print_section("Input", user_input)
-
-    # Step 1: Analyze intent
-    print_section("Step 1: Intent Analysis")
-    intent_result = analyze_intent(user_input)
-    print(f"  Intent: {intent_result.get('intent', 'unknown')}")
-    print(f"  Is Question: {intent_result.get('is_question', False)}")
-
-    # Step 2: Check safety
-    print_section("Step 2: Safety Check")
-    is_safe, severity, reason = check_safety(user_input)
-    print(f"  Safe: {is_safe}")
-    if not is_safe:
-        print(f"  Severity: {severity}")
-        print(f"  Reason: {reason}")
-        if severity == "blocked":
-            print_section("Action", "Command blocked by safety filter")
-            return False, {"error": reason}
-
-        # For warning/confirmation, ask user
-        if severity in ["warning", "confirmation"]:
-            response = input(f"  Continue anyway? [y/n]: ").strip().lower()
-            if response != "y":
-                print_section("Action", "User cancelled")
-                return False, {"cancelled": True}
-
-    # Step 3: Generate action
-    print_section("Step 3: Action Generation")
-    try:
-        action = generate_action(user_input, MEMORY.get_context())
-        print(f"  Action Type: {action.get('action', 'N/A')}")
-        print(f"  Platform: {action.get('platform', 'N/A')}")
-        print(f"  Mode: {action.get('mode', 'N/A')}")
-
-        if action.get("steps"):
-            print(f"  Steps: {len(action['steps'])}")
-            for i, step in enumerate(action["steps"], 1):
-                print(f"    {i}. {step.get('tool', 'N/A')}")
-    except Exception as e:
-        print(f"  ✗ Failed to generate action: {e}")
-        return False, {"error": str(e)}
-
-    # Step 4: Create message and route
-    print_section("Step 4: Message Routing")
-    try:
-        message = Message(
-            action=action.get("action", "execute"),
-            platform=action.get("platform", "cli"),
-            mode=action.get("mode", "visible"),
-            data=action.get("data", {}),
-            steps=action.get("steps", []),
-            context=action.get("context", {})
-        )
-        print(f"  Message ID: {message.timestamp}")
-        print(f"  Routes to: {message.action} ({message.platform})")
-    except Exception as e:
-        print(f"  ✗ Failed to create message: {e}")
-        return False, {"error": str(e)}
-
-    # Step 5: Execute (with approval if needed)
-    print_section("Step 5: Execution")
-    try:
-        # Check if approval needed
-        from config import EXECUTION_CONFIG
-        if EXECUTION_CONFIG.get("approval_required") and message.mode == "visible":
-            if not get_user_approval(action):
-                print_section("Action", "User denied approval")
-                return False, {"denied": True}
-
-        # Execute via router
-        result = route(message)
-
-        # Display result
-        if isinstance(result, Response):
-            if result.success:
-                print("  ✓ Execution successful")
-                if result.data:
-                    print(f"  Result: {format_result(result.data)}")
-            else:
-                print(f"  ✗ Execution failed: {result.error or 'unknown error'}")
-
-            return result.success, result.to_dict()
-        else:
-            # Handle dict response (fallback)
-            if result.get("success"):
-                print("  ✓ Execution successful")
-                if result.get("data"):
-                    print(f"  Result: {result['data']}")
-            else:
-                print(f"  ✗ Execution failed: {result.get('error', 'unknown error')}")
-
-            return result.get("success", False), result
-
-    except Exception as e:
-        print(f"  ✗ Execution error: {e}")
-        import traceback
-        traceback.print_exc()
-        return False, {"error": str(e)}
-
-
-def main_test_command(command: str) -> None:
-    """Test mode: execute single command."""
-    print_header("AI Assistant - Test Mode")
-    print(f"Command: {command}\n")
-
-    clear_system_state()
-    MEMORY.clear()
-
-    success, result = process_user_input(command)
-
-    print_header("Results")
-    print(f"Success: {success}")
-    print(f"Result: {format_result(result)}")
-
-    print_header("Final State")
-    display_state_summary()
-    display_memory_info()
-
-
-def main_demo() -> None:
-    """Demo mode: run through example scenarios."""
-    print_header("AI Assistant - Demo Mode")
-
-    scenarios = [
-        "list files in /tmp",
-        "create a backup of my documents",
-        "show me the time",
-    ]
-
-    for i, scenario in enumerate(scenarios, 1):
-        print(f"\n{'─' * 60}")
-        print(f"Scenario {i}: {scenario}")
-        print(f"{'─' * 60}")
-
-        clear_system_state()
-        MEMORY.clear()
-
-        success, result = process_user_input(scenario)
-
-        print(f"\n→ Scenario {i} Result: {'✓ Success' if success else '✗ Failed'}")
-
-        if i < len(scenarios):
-            print(f"\n[Continuing to next scenario...]")
-
-
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Modular AI Assistant - Execute tasks via natural language"
-    )
-    parser.add_argument(
-        "--mode",
-        choices=["interactive", "test", "demo"],
-        default="interactive",
-        help="Execution mode"
-    )
-    parser.add_argument(
-        "--command",
-        type=str,
-        help="Command to execute (for test mode)"
-    )
-    parser.add_argument(
-        "--no-memory-init",
-        action="store_true",
-        help="Don't initialize memory on startup"
-    )
-
-    args = parser.parse_args()
-
-    # Initialize memory if not disabled
-    if not args.no_memory_init:
-        MEMORY.update_context({"session_start": datetime.now().isoformat()})
-
-    try:
-        if args.mode == "test":
-            if not args.command:
-                print("Error: --command required for test mode")
-                sys.exit(1)
-            main_test_command(args.command)
-
-        elif args.mode == "demo":
-            main_demo()
-
-        else:  # interactive
-            main_interactive()
-
-    except KeyboardInterrupt:
-        print("\n\nInterrupted by user")
-        sys.exit(0)
-    except Exception as e:
-        print(f"\n✗ Fatal error: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
-
-
-
-================================================================================
 FILE: 2026-05-12_CONTEXT_SEED.md
 ================================================================================
 
@@ -34148,6 +33813,341 @@ The Scout Memory System Foundation is complete and ready for:
 
 Architect: Claude Code AI Assistant  
 Architecture: Modular, type-safe, persistent, searchable, maintainable  
+
+
+
+================================================================================
+FILE: main.py
+================================================================================
+
+#!/mnt/D/venvs/avril-main/bin/python3
+"""
+Integration entry point for the modular AI assistant system.
+Demonstrates complete flow: user input → brain decision → execution → state tracking.
+"""
+
+import sys
+import json
+from datetime import datetime
+from typing import Dict, Any, Tuple
+
+# Core modules
+from router import dispatch, send_to_service
+from router.message import Message, Response
+from brain import analyze_intent, check_safety, generate_action_legacy
+from executor import execute
+from state import get_state as get_system_state, clear_state as clear_system_state
+from memory import MEMORY
+
+
+def print_header(text: str) -> None:
+    """Print formatted header."""
+    print(f"\n{'=' * 60}")
+    print(f"  {text}")
+    print(f"{'=' * 60}\n")
+
+
+def print_section(title: str, content: str = "") -> None:
+    """Print formatted section."""
+    print(f"\n→ {title}")
+    if content:
+        print(f"  {content}")
+
+
+def format_result(data: Dict[str, Any]) -> str:
+    """Format result for display."""
+    return json.dumps(data, indent=2)
+
+
+def get_user_approval(action: Dict[str, Any]) -> bool:
+    """Ask user for approval of action."""
+    print_section("⚠ APPROVAL REQUIRED", f"Action: {action.get('action', 'unknown')}")
+
+    if action.get("steps"):
+        print("  Steps:")
+        for i, step in enumerate(action["steps"], 1):
+            print(f"    {i}. {step.get('tool', 'unknown')} - {step.get('data', {})}")
+
+    response = input("\n  Approve? [y/n]: ").strip().lower()
+    return response == "y"
+
+
+def display_state_summary() -> None:
+    """Display current system state summary."""
+    state = get_system_state()
+
+    if isinstance(state, dict):
+        if state.get("current_action"):
+            print_section(
+                "Current Action",
+                f"{state.get('current_action', 'N/A')}"
+            )
+
+        if state.get("execution_history"):
+            print_section("Recent Execution History")
+            for item in state["execution_history"][-3:]:  # Last 3 items
+                action = item.get('action', 'N/A')
+                result = item.get('result', {})
+                print(f"  → {action}: {result}")
+
+        if state.get("status") != "idle":
+            print_section("System Status", f"Current: {state.get('status', 'N/A')}")
+
+
+def display_memory_info() -> None:
+    """Display memory system info."""
+    memory_state = MEMORY.get_state()
+
+    if memory_state.get("current_task"):
+        task = memory_state["current_task"]
+        print_section("Task Memory", f"{task.get('name', 'N/A')} ({task.get('status', 'N/A')})")
+
+    if memory_state.get("current_status") != "idle":
+        print_section("Memory Status", memory_state.get("current_status", "N/A"))
+
+    if memory_state.get("context"):
+        print_section("Context Keys", str(list(memory_state["context"].keys())))
+
+
+def main_interactive() -> None:
+    """Interactive mode: loop until user quits."""
+    print_header("AI Assistant - Interactive Mode")
+    print("Type your command or ask a question. Type 'exit' to quit, 'status' to see state.\n")
+
+    while True:
+        try:
+            user_input = input("You: ").strip()
+
+            if not user_input:
+                continue
+
+            if user_input.lower() == "exit":
+                print_header("Goodbye")
+                break
+
+            if user_input.lower() == "status":
+                display_state_summary()
+                display_memory_info()
+                continue
+
+            if user_input.lower() == "memory":
+                print(MEMORY.debug_view())
+                continue
+
+            # Process user input through system
+            process_user_input(user_input)
+
+        except KeyboardInterrupt:
+            print("\n\nGoodbye")
+            break
+        except Exception as e:
+            print(f"\n✗ Error: {e}")
+            import traceback
+            traceback.print_exc()
+
+
+def process_user_input(user_input: str) -> Tuple[bool, Dict[str, Any]]:
+    """
+    Process user input through the full system pipeline.
+
+    Returns:
+        (success: bool, result: Dict[str, Any])
+    """
+    print_section("Input", user_input)
+
+    # Step 1: Analyze intent
+    print_section("Step 1: Intent Analysis")
+    intent_result = analyze_intent(user_input)
+    print(f"  Intent: {intent_result.get('intent', 'unknown')}")
+    print(f"  Is Question: {intent_result.get('is_question', False)}")
+
+    # Step 2: Check safety
+    print_section("Step 2: Safety Check")
+    is_safe, severity, reason = check_safety(user_input)
+    print(f"  Safe: {is_safe}")
+    if not is_safe:
+        print(f"  Severity: {severity}")
+        print(f"  Reason: {reason}")
+        if severity == "blocked":
+            print_section("Action", "Command blocked by safety filter")
+            return False, {"error": reason}
+
+        # For warning/confirmation, ask user
+        if severity in ["warning", "confirmation"]:
+            response = input(f"  Continue anyway? [y/n]: ").strip().lower()
+            if response != "y":
+                print_section("Action", "User cancelled")
+                return False, {"cancelled": True}
+
+    # Step 3: Generate action
+    print_section("Step 3: Action Generation")
+    try:
+        action = generate_action_legacy(user_input, MEMORY.get_context())
+        print(f"  Action Type: {action.get('action', 'N/A')}")
+        print(f"  Platform: {action.get('platform', 'N/A')}")
+        print(f"  Mode: {action.get('mode', 'N/A')}")
+
+        if action.get("steps"):
+            print(f"  Steps: {len(action['steps'])}")
+            for i, step in enumerate(action["steps"], 1):
+                print(f"    {i}. {step.get('tool', 'N/A')}")
+    except Exception as e:
+        print(f"  ✗ Failed to generate action: {e}")
+        return False, {"error": str(e)}
+
+    # Step 4: Create message and route
+    print_section("Step 4: Message Routing")
+    try:
+        message = Message(
+            action=action.get("action", "execute"),
+            platform=action.get("platform", "cli"),
+            mode=action.get("mode", "visible"),
+            data=action.get("data", {}),
+            steps=action.get("steps", []),
+            context=action.get("context", {})
+        )
+        print(f"  Message ID: {message.timestamp}")
+        print(f"  Routes to: {message.action} ({message.platform})")
+    except Exception as e:
+        print(f"  ✗ Failed to create message: {e}")
+        return False, {"error": str(e)}
+
+    # Step 5: Execute (with approval if needed)
+    print_section("Step 5: Execution")
+    try:
+        # Check if approval needed
+        from config import EXECUTION_CONFIG
+        if EXECUTION_CONFIG.get("approval_required") and message.mode == "visible":
+            if not get_user_approval(action):
+                print_section("Action", "User denied approval")
+                return False, {"denied": True}
+
+        # Execute via router
+        result = route(message)
+
+        # Display result
+        if isinstance(result, Response):
+            if result.success:
+                print("  ✓ Execution successful")
+                if result.data:
+                    print(f"  Result: {format_result(result.data)}")
+            else:
+                print(f"  ✗ Execution failed: {result.error or 'unknown error'}")
+
+            return result.success, result.to_dict()
+        else:
+            # Handle dict response (fallback)
+            if result.get("success"):
+                print("  ✓ Execution successful")
+                if result.get("data"):
+                    print(f"  Result: {result['data']}")
+            else:
+                print(f"  ✗ Execution failed: {result.get('error', 'unknown error')}")
+
+            return result.get("success", False), result
+
+    except Exception as e:
+        print(f"  ✗ Execution error: {e}")
+        import traceback
+        traceback.print_exc()
+        return False, {"error": str(e)}
+
+
+def main_test_command(command: str) -> None:
+    """Test mode: execute single command."""
+    print_header("AI Assistant - Test Mode")
+    print(f"Command: {command}\n")
+
+    clear_system_state()
+    MEMORY.clear()
+
+    success, result = process_user_input(command)
+
+    print_header("Results")
+    print(f"Success: {success}")
+    print(f"Result: {format_result(result)}")
+
+    print_header("Final State")
+    display_state_summary()
+    display_memory_info()
+
+
+def main_demo() -> None:
+    """Demo mode: run through example scenarios."""
+    print_header("AI Assistant - Demo Mode")
+
+    scenarios = [
+        "list files in /tmp",
+        "create a backup of my documents",
+        "show me the time",
+    ]
+
+    for i, scenario in enumerate(scenarios, 1):
+        print(f"\n{'─' * 60}")
+        print(f"Scenario {i}: {scenario}")
+        print(f"{'─' * 60}")
+
+        clear_system_state()
+        MEMORY.clear()
+
+        success, result = process_user_input(scenario)
+
+        print(f"\n→ Scenario {i} Result: {'✓ Success' if success else '✗ Failed'}")
+
+        if i < len(scenarios):
+            print(f"\n[Continuing to next scenario...]")
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Modular AI Assistant - Execute tasks via natural language"
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["interactive", "test", "demo"],
+        default="interactive",
+        help="Execution mode"
+    )
+    parser.add_argument(
+        "--command",
+        type=str,
+        help="Command to execute (for test mode)"
+    )
+    parser.add_argument(
+        "--no-memory-init",
+        action="store_true",
+        help="Don't initialize memory on startup"
+    )
+
+    args = parser.parse_args()
+
+    # Initialize memory if not disabled
+    if not args.no_memory_init:
+        MEMORY.update_context({"session_start": datetime.now().isoformat()})
+
+    try:
+        if args.mode == "test":
+            if not args.command:
+                print("Error: --command required for test mode")
+                sys.exit(1)
+            main_test_command(args.command)
+
+        elif args.mode == "demo":
+            main_demo()
+
+        else:  # interactive
+            main_interactive()
+
+    except KeyboardInterrupt:
+        print("\n\nInterrupted by user")
+        sys.exit(0)
+    except Exception as e:
+        print(f"\n✗ Fatal error: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
 
 
 
@@ -45815,22 +45815,6 @@ __all__ = [
 
 
 ================================================================================
-FILE: brain/__init__.py
-================================================================================
-
-"""
-Brain module - decision making and intent detection.
-Reads from config, calls LLM, returns structured actions.
-Does NOT call executor, tools, or state directly - uses router only.
-"""
-
-from .brain import analyze_intent, generate_action, check_safety, is_conversational
-
-__all__ = ["analyze_intent", "generate_action", "check_safety", "is_conversational"]
-
-
-
-================================================================================
 FILE: brain/README.md
 ================================================================================
 
@@ -46422,6 +46406,80 @@ Important:
 
 
 ================================================================================
+FILE: brain/llm.py
+================================================================================
+
+"""
+LLM integration - calls models by role.
+Supports role-based model selection: router_model, coding_model, deep_thinking_model, etc.
+"""
+
+import requests
+from config import LLM_CONFIG
+
+
+def get_llm_response(prompt_text: str, role: str = "router_model") -> str:
+    """
+    Call LLM using role-based model selection.
+
+    Args:
+        prompt_text: Prompt to send to LLM
+        role: Model role from config (router_model, coding_model, deep_thinking_model, etc)
+
+    Returns:
+        LLM response text
+
+    Raises:
+        Exception: If API call fails or role not found
+    """
+    # Validate role exists in config
+    if role not in LLM_CONFIG:
+        available_roles = [k for k in LLM_CONFIG.keys() if k.endswith("_model")]
+        raise ValueError(f"Unknown role '{role}'. Available: {available_roles}")
+
+    model_name = LLM_CONFIG[role]
+
+    try:
+        # For now, assume all models are served via Ollama
+        # This is a compatibility layer that can be extended later
+        url = LLM_CONFIG["ollama_url"]
+
+        payload = {
+            "model": model_name,
+            "prompt": prompt_text,
+            "stream": False,
+        }
+
+        response = requests.post(url, json=payload, timeout=LLM_CONFIG["timeout"])
+        response.raise_for_status()
+
+        data = response.json()
+        result = data.get("response", "").strip()
+
+        print(f"📡 LLM response received ({len(result)} chars) via {role}")
+        return result
+
+    except Exception as e:
+        raise Exception(f"LLM call failed ({role}): {str(e)}")
+
+
+def get_coding_response(prompt_text: str) -> str:
+    """Shortcut for code generation using coding_model role."""
+    return get_llm_response(prompt_text, role="coding_model")
+
+
+def get_thinking_response(prompt_text: str) -> str:
+    """Shortcut for deep reasoning using deep_thinking_model role."""
+    return get_llm_response(prompt_text, role="deep_thinking_model")
+
+
+def get_fast_response(prompt_text: str) -> str:
+    """Shortcut for fast execution using fast_executor_model role."""
+    return get_llm_response(prompt_text, role="fast_executor_model")
+
+
+
+================================================================================
 FILE: brain/brain.py
 ================================================================================
 
@@ -46510,7 +46568,7 @@ def analyze_intent(user_input: str) -> dict:
     }
 
 
-def generate_action(user_input, context=None, model=None) -> dict:
+def generate_action_legacy(user_input, context=None, model=None) -> dict:
     """
     Generate a structured action from user input using LLM and tool schemas.
 
@@ -46552,7 +46610,7 @@ def generate_action(user_input, context=None, model=None) -> dict:
         prompt = build_action_prompt(user_input, tool_schemas, tier_info, context)
 
         # Step 4: Call LLM to generate action
-        llm_response = get_llm_response(prompt, model=model)
+        llm_response = get_llm_response(prompt, role="deep_thinking_model")
 
         # Step 5: Parse LLM response into action steps
         action_result = parse_action_response(llm_response, tool_schemas)
@@ -46603,69 +46661,376 @@ def generate_action(user_input, context=None, model=None) -> dict:
 
 
 ================================================================================
-FILE: brain/llm.py
+FILE: brain/observer.py
 ================================================================================
 
 """
-LLM integration - calls Groq API.
-Reads config from config module only, no hardcoded values.
+Observer - verifies step execution against expected results.
+Answers: What happened? Was it expected? Should we continue?
 """
 
-import requests
-from config import LLM_CONFIG
+from typing import Dict, Any, Optional
+from todo.schemas import StepObservation
+from brain.llm import get_llm_response
 
 
-def get_llm_response(prompt_text: str, model: str = None) -> str:
+def observe_step_result(
+    step_description: str,
+    expected_result: str,
+    success_criteria: list,
+    actual_feedback: str,
+) -> StepObservation:
     """
-    Call Groq API model.
+    Observe and interpret step execution result.
+
+    Uses LLM to compare expected vs actual and determine next action.
 
     Args:
-        prompt_text: Prompt to send to LLM
-        model: Model name (defaults to general model from config)
+        step_description: What the step was supposed to do
+        expected_result: What success looks like
+        success_criteria: List of criteria that indicate success
+        actual_feedback: What actually happened
 
     Returns:
-        LLM response text
-
-    Raises:
-        Exception: If API call fails
+        StepObservation with confidence, status, and recommendation
     """
-    if model is None:
-        model = LLM_CONFIG["general_model"]
+
+    prompt = f"""You are an execution observer. Verify if a step succeeded.
+
+STEP: {step_description}
+
+EXPECTED RESULT:
+{expected_result}
+
+SUCCESS CRITERIA:
+{chr(10).join(f"- {crit}" for crit in success_criteria)}
+
+ACTUAL FEEDBACK:
+{actual_feedback}
+
+Analyze:
+1. Did the step succeed? (Yes/No/Uncertain)
+2. Confidence level (0.0 to 1.0)
+3. Reason for your assessment
+4. What should happen next? (continue/retry/replan/stop)
+
+Respond in JSON:
+{{
+    "succeeded": true/false,
+    "confidence": 0.85,
+    "reason": "Explanation here",
+    "next_action": "continue"
+}}
+"""
 
     try:
-        from groq import Groq
-        from api import api as groq_api_key
+        response_text = get_llm_response(prompt, role="deep_thinking_model")
 
-        print(f"📡 Calling Groq API (llama-3.1-8b-instant)...")
-        client = Groq(api_key=groq_api_key)
+        # Parse JSON response
+        import json
+        response_json = json.loads(response_text)
 
-        completion = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt_text
-                }
-            ],
-            temperature=LLM_CONFIG["temperature"],
-            top_p=LLM_CONFIG["top_p"],
-            max_completion_tokens=2048,
+        succeeded = response_json.get("succeeded", False)
+        confidence = float(response_json.get("confidence", 0.5))
+        reason = response_json.get("reason", "Unknown")
+        next_action = response_json.get("next_action", "stop")
+
+        # Determine status
+        if succeeded:
+            status = "success"
+        elif confidence < 0.3:
+            status = "uncertain"
+        else:
+            status = "failed"
+
+        # Map next_action to our enums
+        recommended = next_action.lower()
+        if recommended not in ["continue", "retry", "replan", "stop"]:
+            recommended = "stop"
+
+        return StepObservation(
+            step_id="",  # Will be set by caller
+            matched_expectation=succeeded,
+            confidence=confidence,
+            status=status,
+            reason=reason,
+            recommended_next=recommended,
+            feedback=actual_feedback,
         )
 
-        response = completion.choices[0].message.content.strip()
-        print(f"✓ Groq response received ({len(response)} chars)")
-        return response
+    except Exception as e:
+        # Fallback to conservative assessment
+        return StepObservation(
+            step_id="",
+            matched_expectation=False,
+            confidence=0.0,
+            status="uncertain",
+            reason=f"Observer error: {str(e)}",
+            recommended_next="stop",
+            feedback=actual_feedback,
+        )
+
+
+def simple_observe(
+    expected: str,
+    actual: str,
+    success_indicators: Optional[list] = None
+) -> bool:
+    """
+    Simple observation: does actual contain expected patterns?
+    Use for quick checks without LLM.
+
+    Args:
+        expected: Expected output substring/pattern
+        actual: Actual output
+        success_indicators: List of patterns, any matching = success
+
+    Returns:
+        True if expected found or success_indicator matched
+    """
+    actual_lower = actual.lower()
+    expected_lower = expected.lower()
+
+    # Check if expected appears in actual
+    if expected_lower in actual_lower:
+        return True
+
+    # Check success indicators
+    if success_indicators:
+        for indicator in success_indicators:
+            if indicator.lower() in actual_lower:
+                return True
+
+    return False
+
+
+
+================================================================================
+FILE: brain/planner.py
+================================================================================
+
+"""
+Planner - generates structured execution plans for large tasks.
+Asks GPT-OSS: "Generate steps, expected results, risks, and fallback conditions."
+"""
+
+from typing import Dict, Any, List
+from todo.schemas import ExecutionPlan, ExecutionStep, StepStatus
+from brain.llm import get_llm_response
+import json
+
+
+def create_plan(objective: str, context: Dict[str, Any] = None) -> ExecutionPlan:
+    """
+    Create an execution plan for an objective.
+
+    For large tasks, asks LLM to generate structured steps with:
+    - Description
+    - Expected results
+    - Success criteria
+    - Target service (executor, coder, thinker)
+    - Query maker (query_maker1 or query_maker2)
+    - Dependencies
+
+    Args:
+        objective: What needs to be done
+        context: Optional context about the task
+
+    Returns:
+        ExecutionPlan with structured steps
+    """
+
+    prompt = f"""You are a task planner. Create a detailed execution plan.
+
+OBJECTIVE:
+{objective}
+
+CONTEXT:
+{json.dumps(context or {{}}, indent=2)}
+
+Create a step-by-step plan with:
+1. Clear steps (not vague)
+2. Expected results for each step
+3. Success criteria (what proves it worked)
+4. Target service (executor/coder/thinker/query_maker1/query_maker2)
+5. Dependencies between steps (if any)
+
+Rules:
+- executor: runs shell commands, tools, system operations
+- coder: generates/writes/modifies code
+- thinker: analyzes, reasons, makes decisions
+- query_maker1: gets context for fast operations
+- query_maker2: gets context for complex reasoning
+
+For each step, respond with:
+{{
+    "id": "step_1",
+    "description": "What to do",
+    "expected_result": "What success looks like",
+    "success_criteria": ["criterion1", "criterion2"],
+    "target": "executor|coder|thinker",
+    "query_maker": "query_maker1" or "query_maker2",
+    "depends_on": ["step_0"] or []
+}}
+
+Respond with JSON array of steps:
+[
+    {{ "id": "step_1", ... }},
+    {{ "id": "step_2", ... }},
+    ...
+]
+"""
+
+    try:
+        response_text = get_llm_response(prompt, role="deep_thinking_model")
+
+        # Parse JSON response
+        steps_data = json.loads(response_text)
+
+        # Build ExecutionPlan
+        plan = ExecutionPlan(
+            plan_id=f"plan_{objective[:20].lower().replace(' ', '_')}",
+            objective=objective,
+            created_by="brain",
+            context=context or {},
+        )
+
+        # Convert step data to ExecutionStep objects
+        for step_data in steps_data:
+            step = ExecutionStep(
+                id=step_data.get("id", f"step_{len(plan.steps)}"),
+                description=step_data.get("description", ""),
+                expected_result=step_data.get("expected_result", ""),
+                success_criteria=step_data.get("success_criteria", []),
+                target=step_data.get("target", "executor"),
+                query_maker=step_data.get("query_maker"),
+                depends_on=step_data.get("depends_on", []),
+                action="dispatch_tool",  # Default, can be overridden
+                payload={},  # Will be filled during execution
+            )
+            plan.steps.append(step)
+
+        # Set first step as current
+        if plan.steps:
+            plan.current_step_id = plan.steps[0].id
+
+        return plan
 
     except Exception as e:
-        raise Exception(f"Groq API call failed: {str(e)}")
+        # Fallback: create simple single-step plan
+        print(f"⚠ Planner error: {str(e)}, creating fallback plan")
+        plan = ExecutionPlan(
+            plan_id="plan_fallback",
+            objective=objective,
+            created_by="brain",
+            context={"error": str(e)},
+        )
+
+        # Single fallback step
+        step = ExecutionStep(
+            id="step_1",
+            description=f"Execute: {objective}",
+            expected_result="Task completed",
+            success_criteria=["Completed"],
+            target="executor",
+            action="dispatch_tool",
+            payload={"task": objective},
+        )
+        plan.steps.append(step)
+        plan.current_step_id = "step_1"
+
+        return plan
 
 
-def get_code_llm_response(prompt_text: str) -> str:
+def create_simple_plan(objective: str) -> ExecutionPlan:
     """
-    Call code-specialized model (using Groq).
-    Shortcut for code generation tasks.
+    Create a simple single-step plan without LLM.
+    Used for quick/obvious tasks.
     """
-    return get_llm_response(prompt_text, model=LLM_CONFIG["code_model"])
+    plan = ExecutionPlan(
+        plan_id=f"simple_{objective[:15].lower().replace(' ', '_')}",
+        objective=objective,
+        created_by="brain",
+    )
+
+    step = ExecutionStep(
+        id="step_1",
+        description=f"Execute: {objective}",
+        expected_result="Task completed successfully",
+        success_criteria=["Completed", "No errors"],
+        target="executor",
+        action="dispatch_tool",
+        payload={"task": objective},
+    )
+    plan.steps.append(step)
+    plan.current_step_id = "step_1"
+
+    return plan
+
+
+def classify_task_size(objective: str) -> str:
+    """
+    Classify task as small or large to decide if we need planning.
+
+    Small: Can be done in 1-2 steps
+    Large: Needs multi-step plan
+
+    Args:
+        objective: What needs to be done
+
+    Returns:
+        "small" or "large"
+    """
+    objective_lower = objective.lower()
+
+    # Heuristics for large tasks
+    large_indicators = [
+        "implement", "build", "design", "architect", "refactor",
+        "plan", "analyze", "investigate", "debug", "troubleshoot",
+        "optimize", "improve", "migrate", "restructure",
+    ]
+
+    for indicator in large_indicators:
+        if indicator in objective_lower:
+            return "large"
+
+    # Quick tasks are small
+    if any(word in objective_lower for word in ["run", "execute", "click", "type", "read"]):
+        return "small"
+
+    # Default to small
+    return "small"
+
+
+
+================================================================================
+FILE: brain/__init__.py
+================================================================================
+
+"""
+Brain module - decision making and intent detection.
+Reads from config, calls LLM, returns structured actions.
+Does NOT call executor, tools, or state directly - uses router only.
+"""
+
+from .brain import analyze_intent, generate_action_legacy, check_safety, is_conversational
+from .planner import create_plan, create_simple_plan, classify_task_size
+from .observer import observe_step_result, simple_observe
+
+__all__ = [
+    # Core analysis
+    "analyze_intent",
+    "check_safety",
+    "is_conversational",
+    # Legacy support
+    "generate_action_legacy",
+    # New architecture
+    "create_plan",
+    "create_simple_plan",
+    "classify_task_size",
+    "observe_step_result",
+    "simple_observe",
+]
 
 
 
@@ -54443,10 +54808,11 @@ FILE: todo/__init__.py
 ================================================================================
 
 """
-TODO system - task tracking and progress management.
-Track tasks like Claude Code.
+TODO system - task tracking and execution plan management.
+Track tasks like Claude Code and manage multi-step execution plans.
 """
 
+# Legacy interface (Claude-Code style checklist)
 from .todo import (
     Task,
     TodoList,
@@ -54458,7 +54824,17 @@ from .todo import (
     print_tasks,
 )
 
+# New architecture (execution plans and steps)
+from .schemas import (
+    ExecutionPlan,
+    ExecutionStep,
+    StepObservation,
+    StepStatus,
+    PlanStatus,
+)
+
 __all__ = [
+    # Legacy
     "Task",
     "TodoList",
     "TaskStatus",
@@ -54467,7 +54843,224 @@ __all__ = [
     "add_task",
     "mark_task_done",
     "print_tasks",
+    # New architecture
+    "ExecutionPlan",
+    "ExecutionStep",
+    "StepObservation",
+    "StepStatus",
+    "PlanStatus",
 ]
+
+
+
+================================================================================
+FILE: todo/schemas.py
+================================================================================
+
+"""
+Todo execution schemas - structured task and plan representations.
+Defines step, plan, and status tracking for long-running agent tasks.
+"""
+
+from dataclasses import dataclass, field
+from typing import List, Dict, Optional, Any
+from enum import Enum
+from datetime import datetime
+
+
+class StepStatus(str, Enum):
+    """Status of a single execution step."""
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    BLOCKED = "blocked"
+    SKIPPED = "skipped"
+
+
+class PlanStatus(str, Enum):
+    """Status of entire execution plan."""
+    CREATED = "created"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    BLOCKED = "blocked"
+    ABANDONED = "abandoned"
+
+
+@dataclass
+class ExecutionStep:
+    """Single step in an execution plan."""
+
+    id: str
+    description: str
+
+    # What to do
+    target: str  # executor, coder, thinker, query_maker1, etc
+    action: str  # dispatch_tool, dispatch_model, run_query_maker, etc
+
+    # What we expect
+    expected_result: str  # Human description of success
+
+    # Optional/defaults
+    payload: Dict[str, Any] = field(default_factory=dict)
+    success_criteria: List[str] = field(default_factory=list)
+    query_maker: Optional[str] = None  # query_maker1 or query_maker2
+
+    # Execution tracking
+    status: StepStatus = StepStatus.PENDING
+    retry_count: int = 0
+    max_retries: int = 3
+
+    # Results
+    actual_result: Optional[str] = None
+    last_observation: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+
+    # Dependencies
+    depends_on: List[str] = field(default_factory=list)
+
+    # Timing
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to dict."""
+        return {
+            "id": self.id,
+            "description": self.description,
+            "target": self.target,
+            "action": self.action,
+            "payload": self.payload,
+            "expected_result": self.expected_result,
+            "success_criteria": self.success_criteria,
+            "query_maker": self.query_maker,
+            "status": self.status.value,
+            "retry_count": self.retry_count,
+            "max_retries": self.max_retries,
+            "actual_result": self.actual_result,
+            "last_observation": self.last_observation,
+            "error": self.error,
+            "depends_on": self.depends_on,
+            "started_at": self.started_at,
+            "completed_at": self.completed_at,
+        }
+
+
+@dataclass
+class ExecutionPlan:
+    """Complete execution plan for a task."""
+
+    plan_id: str
+    objective: str
+    created_by: str  # "scout", "brain", etc
+
+    # Steps
+    steps: List[ExecutionStep] = field(default_factory=list)
+    current_step_id: Optional[str] = None
+
+    # Status
+    status: PlanStatus = PlanStatus.CREATED
+
+    # Tracking
+    created_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+
+    # History
+    history: List[Dict[str, Any]] = field(default_factory=list)
+
+    # Context
+    context: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to dict."""
+        return {
+            "plan_id": self.plan_id,
+            "objective": self.objective,
+            "created_by": self.created_by,
+            "steps": [step.to_dict() for step in self.steps],
+            "current_step_id": self.current_step_id,
+            "status": self.status.value,
+            "created_at": self.created_at,
+            "started_at": self.started_at,
+            "completed_at": self.completed_at,
+            "history": self.history,
+            "context": self.context,
+        }
+
+    def get_current_step(self) -> Optional[ExecutionStep]:
+        """Get the current step."""
+        if not self.current_step_id:
+            return None
+        for step in self.steps:
+            if step.id == self.current_step_id:
+                return step
+        return None
+
+    def get_next_incomplete_step(self) -> Optional[ExecutionStep]:
+        """Get the next incomplete step (not done, not skipped)."""
+        for step in self.steps:
+            if step.status in [StepStatus.PENDING, StepStatus.FAILED]:
+                # Check dependencies
+                if not self._dependencies_met(step):
+                    return None  # Can't run yet
+                return step
+        return None
+
+    def _dependencies_met(self, step: ExecutionStep) -> bool:
+        """Check if all dependencies of a step are completed."""
+        for dep_id in step.depends_on:
+            for step_candidate in self.steps:
+                if step_candidate.id == dep_id:
+                    if step_candidate.status != StepStatus.COMPLETED:
+                        return False
+        return True
+
+    def get_remaining_steps(self) -> List[ExecutionStep]:
+        """Get all remaining (not completed/skipped) steps."""
+        return [
+            step for step in self.steps
+            if step.status not in [StepStatus.COMPLETED, StepStatus.SKIPPED]
+        ]
+
+    def is_complete(self) -> bool:
+        """Check if plan is complete (all steps done or skipped)."""
+        return all(
+            step.status in [StepStatus.COMPLETED, StepStatus.SKIPPED]
+            for step in self.steps
+        )
+
+
+@dataclass
+class StepObservation:
+    """Observation/feedback from step execution."""
+
+    step_id: str
+    matched_expectation: bool
+    confidence: float  # 0.0 to 1.0
+    status: str  # "success", "failed", "uncertain", "blocked"
+    reason: str
+    recommended_next: str  # "continue", "retry", "replan", "stop"
+
+    feedback: Optional[str] = None
+    actual_output: Optional[Dict[str, Any]] = None
+
+    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to dict."""
+        return {
+            "step_id": self.step_id,
+            "matched_expectation": self.matched_expectation,
+            "confidence": self.confidence,
+            "status": self.status,
+            "reason": self.reason,
+            "recommended_next": self.recommended_next,
+            "feedback": self.feedback,
+            "actual_output": self.actual_output,
+            "timestamp": self.timestamp,
+        }
 
 
 
@@ -64127,9 +64720,9 @@ import os
 from datetime import datetime
 
 # Import all modules
-from router import route
+from router import dispatch, send_to_service
 from router.message import Message, Response
-from brain import analyze_intent, check_safety, generate_action
+from brain import analyze_intent, check_safety, generate_action_legacy
 from executor import execute
 from state import get_state, clear_state
 from memory import MEMORY
@@ -64159,7 +64752,7 @@ def test_integration_basic():
     print(f"✓ Safety check passed")
 
     # Step 3: Action generation
-    action = generate_action(user_input, MEMORY.get_context())
+    action = generate_action_legacy(user_input, MEMORY.get_context())
     assert action.get("action"), "No action generated"
     print(f"✓ Action generated: {action['action']}")
 
@@ -64306,7 +64899,7 @@ def test_integration_full_pipeline():
     print(f"2. Safety: {severity}")
     assert is_safe, "Safety check failed"
 
-    action = generate_action(user_input, MEMORY.get_context())
+    action = generate_action_legacy(user_input, MEMORY.get_context())
     print(f"3. Action: {action['action']}")
 
     message = Message(

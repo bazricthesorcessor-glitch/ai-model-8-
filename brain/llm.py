@@ -1,60 +1,67 @@
 """
-LLM integration - calls Groq API.
-Reads config from config module only, no hardcoded values.
+LLM integration - calls models by role.
+Supports role-based model selection: router_model, coding_model, deep_thinking_model, etc.
 """
 
 import requests
 from config import LLM_CONFIG
 
 
-def get_llm_response(prompt_text: str, model: str = None) -> str:
+def get_llm_response(prompt_text: str, role: str = "router_model") -> str:
     """
-    Call Groq API model.
+    Call LLM using role-based model selection.
 
     Args:
         prompt_text: Prompt to send to LLM
-        model: Model name (defaults to general model from config)
+        role: Model role from config (router_model, coding_model, deep_thinking_model, etc)
 
     Returns:
         LLM response text
 
     Raises:
-        Exception: If API call fails
+        Exception: If API call fails or role not found
     """
-    if model is None:
-        model = LLM_CONFIG["general_model"]
+    # Validate role exists in config
+    if role not in LLM_CONFIG:
+        available_roles = [k for k in LLM_CONFIG.keys() if k.endswith("_model")]
+        raise ValueError(f"Unknown role '{role}'. Available: {available_roles}")
+
+    model_name = LLM_CONFIG[role]
 
     try:
-        from groq import Groq
-        from api import api as groq_api_key
+        # For now, assume all models are served via Ollama
+        # This is a compatibility layer that can be extended later
+        url = LLM_CONFIG["ollama_url"]
 
-        print(f"📡 Calling Groq API (llama-3.1-8b-instant)...")
-        client = Groq(api_key=groq_api_key)
+        payload = {
+            "model": model_name,
+            "prompt": prompt_text,
+            "stream": False,
+        }
 
-        completion = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt_text
-                }
-            ],
-            temperature=LLM_CONFIG["temperature"],
-            top_p=LLM_CONFIG["top_p"],
-            max_completion_tokens=2048,
-        )
+        response = requests.post(url, json=payload, timeout=LLM_CONFIG["timeout"])
+        response.raise_for_status()
 
-        response = completion.choices[0].message.content.strip()
-        print(f"✓ Groq response received ({len(response)} chars)")
-        return response
+        data = response.json()
+        result = data.get("response", "").strip()
+
+        print(f"📡 LLM response received ({len(result)} chars) via {role}")
+        return result
 
     except Exception as e:
-        raise Exception(f"Groq API call failed: {str(e)}")
+        raise Exception(f"LLM call failed ({role}): {str(e)}")
 
 
-def get_code_llm_response(prompt_text: str) -> str:
-    """
-    Call code-specialized model (using Groq).
-    Shortcut for code generation tasks.
-    """
-    return get_llm_response(prompt_text, model=LLM_CONFIG["code_model"])
+def get_coding_response(prompt_text: str) -> str:
+    """Shortcut for code generation using coding_model role."""
+    return get_llm_response(prompt_text, role="coding_model")
+
+
+def get_thinking_response(prompt_text: str) -> str:
+    """Shortcut for deep reasoning using deep_thinking_model role."""
+    return get_llm_response(prompt_text, role="deep_thinking_model")
+
+
+def get_fast_response(prompt_text: str) -> str:
+    """Shortcut for fast execution using fast_executor_model role."""
+    return get_llm_response(prompt_text, role="fast_executor_model")

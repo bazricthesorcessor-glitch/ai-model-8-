@@ -9,9 +9,9 @@ import os
 from datetime import datetime
 
 # Import all modules
-from router import route
+from router import dispatch, send_to_service
 from router.message import Message, Response
-from brain import analyze_intent, check_safety, generate_action
+from brain import analyze_intent, check_safety, generate_action_legacy
 from executor import execute
 from state import get_state, clear_state
 from memory import MEMORY
@@ -41,7 +41,7 @@ def test_integration_basic():
     print(f"✓ Safety check passed")
 
     # Step 3: Action generation
-    action = generate_action(user_input, MEMORY.get_context())
+    action = generate_action_legacy(user_input, MEMORY.get_context())
     assert action.get("action"), "No action generated"
     print(f"✓ Action generated: {action['action']}")
 
@@ -188,7 +188,7 @@ def test_integration_full_pipeline():
     print(f"2. Safety: {severity}")
     assert is_safe, "Safety check failed"
 
-    action = generate_action(user_input, MEMORY.get_context())
+    action = generate_action_legacy(user_input, MEMORY.get_context())
     print(f"3. Action: {action['action']}")
 
     message = Message(
