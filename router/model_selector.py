@@ -3,7 +3,6 @@ from groq import Groq
 
 from config.settings import (
     LLM_CONFIG,
-    OLLAMA_ENDPOINTS,
 )
 
 ROUTER_PROMPT = """

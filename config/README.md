@@ -129,9 +129,6 @@ TOOL_REGISTRY = {
 
 - ✅ Centralized settings management
 - ✅ No module dependencies
-- ✅ Easy environment configuration
-- ✅ Type hints for all settings
-- ✅ Validation on load
 - ✅ Safe defaults for all parameters
 
 ## 📚 Usage
@@ -170,27 +167,14 @@ def is_dangerous(command: str) -> bool:
 
 ## 🔧 Configuration Files
 
-### Environment Variables
-The config module reads from environment variables:
-- `OLLAMA_URL` - Ollama server URL (default: http://localhost:11434)
-- `GENERAL_MODEL` - General LLM model name (default: llama3.2)
-- `CODE_MODEL` - Code LLM model name (default: qwen2.5-coder)
-- `APPROVAL_REQUIRED` - Require approval for execution (default: true)
-
-Example:
-```bash
-export OLLAMA_URL="http://192.168.1.100:11434"
-export GENERAL_MODEL="mistral"
-```
+All configuration is defined directly in `settings.py` as Python dictionaries.
 
 ## 🚀 Best Practices
 
 1. **Never hardcode values** - Always use config module
 2. **No module imports** - Config never imports other modules
-3. **Type hints** - All settings have type annotations
-4. **Validation** - All settings validated on load
-5. **Documentation** - Each setting documented with purpose
-6. **Safe defaults** - Sensible defaults for all parameters
+3. **Documentation** - Each setting documented with purpose
+4. **Safe defaults** - Sensible defaults for all parameters
 
 ## 📋 Settings Validation
 

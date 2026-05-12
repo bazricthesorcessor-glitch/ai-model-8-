@@ -7,11 +7,6 @@ import os
 from datetime import datetime
 
 
-OLLAMA_ENDPOINTS = {
-    "generate": "/api/generate",
-}
-
-
 
 # ===== SCREEN CONFIGURATION =====
 SCREEN_CONFIG = {
@@ -24,9 +19,10 @@ SCREEN_CONFIG = {
 # ===== LLM CONFIGURATION =====
 LLM_CONFIG = {
     "router_model": "llama3.2:3b",
-    "general_model": "llama3.2:3b",
-    "thinking_model" : "gemma4:26b",
-    "code_model": "llama3.2:3b",
+    "vision_memory_model": "llama3.2:3b",
+    "fast_executor_model": "llama3.2:3b",
+    "coding_model": "llama3.2:3b",
+    "deep_thinking_model": "gemma4:26b",
     "ollama_url": "http://localhost:11434/api/generate",
     "temperature": 0.3,
     "top_p": 0.9,

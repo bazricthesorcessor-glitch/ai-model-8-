@@ -41,7 +41,7 @@
     "default_bindings": {
       "super+q": "close_window",
       "super+f": "toggle_fullscreen",
-      "super+space": "toggle_floating",
+      "super+space": "open_dolphin",
       "super+1": "workspace_1",
       "super+2": "workspace_2",
       "super+3": "workspace_3",
