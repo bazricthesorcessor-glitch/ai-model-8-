@@ -38,7 +38,7 @@ def path_of(name: str) -> Path:
         Path object expanded to user home
 
     Raises:
-        KeyError: if name not found in path registry
+        ValueError: if name not found in path registry
 
     Examples:
         >>> path_of("shell")
@@ -57,7 +57,7 @@ def path_of(name: str) -> Path:
     }
 
     if name not in mapping:
-        available = ", ".join(mapping.keys())
-        raise KeyError(f"Path '{name}' not found. Available: {available}")
+        available = ", ".join(sorted(mapping.keys()))
+        raise ValueError(f"Path not found: '{name}'. Available: {available}")
 
     return mapping[name]
