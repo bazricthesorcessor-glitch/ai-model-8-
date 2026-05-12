@@ -13,6 +13,7 @@
 │   │   ├── action_parser.cpython-314.pyc
 │   │   ├── brain.cpython-314.pyc
 │   │   ├── __init__.cpython-314.pyc
+│   │   ├── llm.cpython-314.pyc
 │   │   └── router.cpython-314.pyc
 │   └── README.md
 ├── CLEANUP_CHECKLIST.md
@@ -41,12 +42,7 @@
 │   └── test_executor.py
 ├── gemma_connector
 │   ├── config.py
-│   ├── connector.py
-│   ├── __init__.py
-│   └── __pycache__
-│       ├── config.cpython-314.pyc
-│       ├── connector.cpython-314.pyc
-│       └── __init__.cpython-314.pyc
+│   └── __init__.py
 ├── HYBRID_SEARCH_IMPLEMENTATION.md
 ├── main.py
 ├── memory
@@ -210,4 +206,4 @@
 ├── whatsapp
 └── WORKFLOW_STRUCTURE.md
 
-50 directories, 161 files
+49 directories, 158 files
