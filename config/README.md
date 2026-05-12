@@ -15,8 +15,39 @@ Centralized configuration management for the entire AI assistant system. All set
 config/
 ├── __init__.py           # Main exports
 ├── settings.py           # Configuration definitions
+├── paths.py              # Semantic path resolver
 └── README.md            # This file
 ```
+
+## 🗂️ Path Resolver System
+
+The `paths.py` module provides semantic access to configuration file paths:
+
+```python
+from config import Paths, path_of
+
+# Access paths via Paths class
+shell_path = Paths.shell
+hyprland_path = Paths.hyprland
+
+# Or use semantic path_of() function
+shell = path_of("shell")
+hyprland = path_of("hyprland")
+```
+
+### Why path_of() exists
+
+- **Models understand semantics better than raw paths**: `path_of("shell")` is more meaningful to an LLM than `/home/user/.config/caelestia/shell.json`
+- **Single source of truth**: Path definitions centralized in one place (easier to maintain and refactor)
+- **Runtime path resolution**: No need to parse config files to find paths
+- **Type-safe access**: Models can introspect available paths and error messages list all available options
+
+**Available paths**:
+- `path_of("shell")` → `~/.config/caelestia/shell.json`
+- `path_of("hyprland")` → `~/.config/hypr/hyprland.conf`
+- `path_of("hyprland_dir")` → `~/.config/hypr/`
+- `path_of("hyprland_keybinds")` → `~/.config/hypr/hyprland/keybinds.conf`
+- `path_of("caelestia_dir")` → `~/.config/caelestia/`
 
 ## ⚙️ Configuration Categories
 
