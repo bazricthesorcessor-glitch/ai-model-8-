@@ -3,8 +3,8 @@
 ## 🎯 Overview
 
 All Hyprland and Caelestia shell configuration is centralized in two main locations:
-- **Hyprland configs**: `/home/.config/hypr/` - Core window manager configuration
-- **Caelestia shell**: `/home/.config/.caelestia/shell.json` - Shell and gesture configuration
+- **Hyprland configs**: `~/.config/hypr/` - Core window manager configuration
+- **Caelestia shell**: `~/.config/caelestia/shell.json` - Shell and gesture configuration
 
 These are the "goldmines" for OS manipulation and desktop automation.
 
@@ -24,7 +24,7 @@ These are the "goldmines" for OS manipulation and desktop automation.
 
 ### Caelestia Shell Configuration
 ```
-~/.config/.caelestia/
+~/.config/caelestia/
 └── shell.json            # Caelestia shell configuration
                           # Contains:
                           # - Gesture mappings
@@ -81,7 +81,7 @@ bind = $mainMod, 1, workspace, 1
 bind = $mainMod, H, splitratio, -0.1
 ```
 
-### 3. Caelestia Shell Configuration (`~/.config/.caelestia/shell.json`)
+### 3. Caelestia Shell Configuration (`~/.config/caelestia/shell.json`)
 
 Shell-level automation and gesture configuration:
 ```json
@@ -190,7 +190,7 @@ hyprctl reload
 
 ### Configure Gesture Mapping
 
-1. Edit `~/.config/.caelestia/shell.json`:
+1. Edit `~/.config/caelestia/shell.json`:
 ```json
 {
   "gestures": {
@@ -253,7 +253,7 @@ workspaces = hyprland.get_workspaces()
 Always backup before major changes:
 ```bash
 cp -r ~/.config/hypr ~/.config/hypr.backup
-cp ~/.config/.caelestia/shell.json ~/.config/.caelestia/shell.json.backup
+cp ~/.config/caelestia/shell.json ~/.config/caelestia/shell.json.backup
 ```
 
 ## 🔐 Best Practices

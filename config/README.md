@@ -23,21 +23,21 @@ config/
 ### OS/Hyprland Configuration (Goldmine for Desktop Automation)
 ```python
 OS_CONFIG = {
-    "hyprland_config_dir": "/home/.config/hypr",
-    "shell_config_file": "/home/.config/.caelestia/shell.json",
-    "hyprland_config_file": "/home/.config/hypr/hyprland.conf",
+    "hyprland_config_dir": "~/.config/hypr",
+    "shell_config_file": "~/.config/caelestia/shell.json",
+    "hyprland_config_file": "~/.config/hypr/hyprland.conf",
     "hyprland_configs": {
-        "binds": "/home/.config/hypr/binds.conf",
-        "monitors": "/home/.config/hypr/monitors.conf",
-        "workspaces": "/home/.config/hypr/workspaces.conf",
-        "animations": "/home/.config/hypr/animations.conf",
+        "binds": "~/.config/hypr/binds.conf",
+        "monitors": "~/.config/hypr/monitors.conf",
+        "workspaces": "~/.config/hypr/workspaces.conf",
+        "animations": "~/.config/hypr/animations.conf",
     }
 }
 ```
 
 **Critical paths for OS manipulation**:
-- `/home/.config/hypr/` - Core Hyprland window manager configuration
-- `/home/.config/.caelestia/shell.json` - Caelestia shell configuration with gestures and shortcuts
+- `~/.config/hypr/` - Core Hyprland window manager configuration
+- `~/.config/caelestia/shell.json` - Caelestia shell configuration with gestures and shortcuts
 - All window management, splits, gestures, and keyboard controls configured here
 
 See `HYPRLAND_CONFIG_GUIDE.md` for detailed documentation.

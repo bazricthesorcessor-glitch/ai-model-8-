@@ -10,11 +10,11 @@
   },
 
   "paths": {
-    "config_dir": "/home/.config/hypr",
-    "shell_config": "/home/.config/.caelestia/shell.json",
-    "hyprland_config": "/home/.config/hypr/hyprland.conf",
-    "state_file": "/home/.cache/caelestia/state.json",
-    "logs_dir": "/home/.cache/caelestia/logs"
+    "config_dir": "~/.config/hypr",
+    "shell_config": "~/.config/caelestia/shell.json",
+    "hyprland_config": "~/.config/hypr/hyprland.conf",
+    "state_file": "~/.cache/caelestia/state.json",
+    "logs_dir": "~/.cache/caelestia/logs"
   },
 
   "gestures": {
