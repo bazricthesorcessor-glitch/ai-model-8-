@@ -17,13 +17,15 @@ IGNORE_DIRS = {
     "__pycache__",
     ".venv",
     "node_modules",
+    "secrets",
 }
 
 IGNORE_FILES = {
+    "api.py",
+    ".env",
     "codebase.txt",
     "tree.txt",
 }
-
 
 # =========================
 # STEP 1 — GENERATE CODEBASE
