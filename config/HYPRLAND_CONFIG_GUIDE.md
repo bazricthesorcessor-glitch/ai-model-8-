@@ -1,5 +1,7 @@
 # Hyprland & Caelestia Configuration Guide
 
+⚠️ **Simplified Guide** — For the actual detailed configuration structure, system layers, and complete file hierarchy, see [`ACTUAL_HYPRLAND_ANALYSIS.md`](ACTUAL_HYPRLAND_ANALYSIS.md).
+
 ## 🎯 Overview
 
 All Hyprland and Caelestia shell configuration is centralized in two main locations:
@@ -13,13 +15,22 @@ These are the "goldmines" for OS manipulation and desktop automation.
 ### Hyprland Configuration Directory
 ```
 ~/.config/hypr/
-├── hyprland.conf          # Main Hyprland configuration
-├── binds.conf            # Keyboard bindings
-├── monitors.conf         # Monitor/display setup
-├── workspaces.conf       # Workspace configuration
-├── animations.conf       # Animation settings
-├── keybinds.conf        # Keybinding definitions
-└── [other configs]      # Additional configs
+├── hyprland.conf              # Main entry point
+├── variables.conf             # User variables (gaps, colors, etc)
+├── hyprland/                  # Modular configurations
+│   ├── keybinds.conf          # Keyboard bindings
+│   ├── animations.conf        # Animation settings
+│   ├── decoration.conf        # Decoration settings
+│   ├── env.conf               # Environment variables
+│   ├── execs.conf             # Startup commands
+│   ├── general.conf           # General behavior
+│   ├── gestures.conf          # Gesture mappings
+│   ├── group.conf             # Window grouping
+│   ├── input.conf             # Input settings
+│   ├── misc.conf              # Miscellaneous
+│   └── rules.conf             # Window rules
+├── scripts/                   # Custom scripts
+└── scheme/                    # Color schemes
 ```
 
 ### Caelestia Shell Configuration
