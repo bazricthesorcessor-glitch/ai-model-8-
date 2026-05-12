@@ -1,109 +1,96 @@
 """
-Router dispatcher - routes messages between modules.
-Central nervous system. No decision logic - only mapping.
+Router - Central nervous system infrastructure.
+Routes packets between services based on source/target/action.
+Does NOT think, decide, or plan - only transports and executes.
 """
 
 from .message import Message, Response
-from brain import analyze_intent, generate_action
-from router.model_selector import select_model
+from typing import Dict, Callable, Optional
 
 
-def route(message: Message) -> Response:
+# Service registry - loaded at startup
+SERVICES: Dict[str, Callable] = {}
+
+
+def register_service(name: str, handler: Callable):
+    """Register a service handler (executor, coder, query_maker, etc)."""
+    SERVICES[name] = handler
+
+
+def dispatch(message: Message) -> Response:
     """
-    Route a message to the appropriate module based on action.
-    This is the ONLY place where modules are imported/called.
+    Dispatch packet to target service.
 
-    Routing:
-    - "decide" → brain module (decision making)
-    - "execute" → executor module (step execution)
-    - "record_state" → state module (update status)
-    - "get_state" → state module (retrieve status)
+    Routes based on message.target:
+    - "executor" → execute tool/command
+    - "query_maker1" → run query maker
+    - "coder" → code generation
+    - "thinker" → deep reasoning
+    - etc.
 
     Args:
-        message: Message object with action, platform, mode, data, steps
+        message: Message with source, target, action, payload
 
     Returns:
-        Response object with success status and result data
+        Response from service with success status and result
     """
-
     try:
-        if message.action == "decide":
-            from brain import analyze_intent, generate_action
-            from router.model_selector import select_model
-            user_input = message.data.get("user_input", "")
-
-            # Select appropriate model with fallback strategy
-            selected_model = select_model(user_input)
-
-            # Analyze intent
-            intent = analyze_intent(user_input)
-
-            # Generate action with selected model
-            action = generate_action(
-                message.data.get("user_input", ""),
-                context=message.context,
-                model=selected_model
-            )
-
+        # Validate packet structure
+        if not message.target:
             return Response(
-                success=True,
-                action="decide",
-                data={
-                    "intent": intent,
-                    "action": action,
-                    "selected_model": selected_model,
-                }
-            )
-
-        elif message.action == "execute":
-            # Import here to avoid circular dependencies
-            from executor import execute
-
-            result = execute(message)
-            return Response(
-                success=result.get("success", False),
-                action="execute",
-                data=result
-            )
-
-        elif message.action == "record_state":
-            # Import here to avoid circular dependencies
-            from state import update_state
-
-            result = update_state(message.data)
-            return Response(
-                success=result.get("success", False),
-                action="record_state",
-                data=result
-            )
-
-        elif message.action == "get_state":
-            # Import here to avoid circular dependencies
-            from state import get_state
-
-            result = get_state()
-            return Response(
-                success=True,
-                action="get_state",
-                data=result
-            )
-
-        else:
-            return Response(
+                source="router",
                 success=False,
-                action=message.action,
-                error=f"Unknown action: {message.action}"
+                error="target required in packet"
             )
 
-    except ImportError as e:
-        return Response(
-            success=False,
-            action=message.action,
-            error=f"Module import error: {str(e)}"
-        )
+        # Look up service handler
+        service = SERVICES.get(message.target)
+        if not service:
+            return Response(
+                source="router",
+                success=False,
+                error=f"service '{message.target}' not registered. Available: {list(SERVICES.keys())}"
+            )
+
+        # Execute service with packet payload
+        result = service(message)
+
+        # Ensure response is Response object
+        if not isinstance(result, Response):
+            result = Response(
+                source=message.target,
+                success=True,
+                result=result if isinstance(result, dict) else {"result": result}
+            )
+
+        return result
+
     except Exception as e:
         return Response(
+            source="router",
             success=False,
-            action=message.action,
-            error=f"Routing error: {str(e)}"
+            error=f"dispatch failed: {str(e)}"
         )
+
+
+def send_to_service(target: str, action: str, payload: dict, context: dict = None) -> Response:
+    """
+    Convenience function - build packet and dispatch to service.
+
+    Args:
+        target: service name
+        action: what to do
+        payload: data for service
+        context: optional execution context
+
+    Returns:
+        Response from service
+    """
+    message = Message(
+        source="router",
+        target=target,
+        action=action,
+        payload=payload,
+        context=context or {}
+    )
+    return dispatch(message)
