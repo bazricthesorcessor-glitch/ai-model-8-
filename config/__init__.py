@@ -11,6 +11,8 @@ from .settings import (
     LOGGING_CONFIG,
     INTENT_CONFIG,
     SCREEN_CONFIG,
+    OS_CONFIG,
+    WEB_CONFIG,
 )
 
 __all__ = [
@@ -21,4 +23,6 @@ __all__ = [
     "LOGGING_CONFIG",
     "INTENT_CONFIG",
     "SCREEN_CONFIG",
+    "OS_CONFIG",
+    "WEB_CONFIG",
 ]
