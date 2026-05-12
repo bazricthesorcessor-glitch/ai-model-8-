@@ -58,11 +58,6 @@
 │   │   └── __init__.cpython-314.pyc
 │   ├── README.md
 │   └── test_executor.py
-├── gemma_connector
-│   ├── config.py
-│   ├── __init__.py
-│   └── __pycache__
-│       └── __init__.cpython-314.pyc
 ├── HYBRID_SEARCH_IMPLEMENTATION.md
 ├── main.py
 ├── memory
@@ -321,4 +316,4 @@
 ├── whatsapp
 └── WORKFLOW_STRUCTURE.md
 
-68 directories, 254 files
+66 directories, 251 files

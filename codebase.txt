@@ -34168,86 +34168,6 @@ __all__ = ["Message", "Response", "route"]
 
 
 ================================================================================
-FILE: router/message.py
-================================================================================
-
-"""
-Message schema for router - strict, immutable structure.
-All inter-module communication uses this schema.
-"""
-
-from typing import Any, Dict, List, Optional
-from dataclasses import dataclass, field
-from datetime import datetime
-
-
-@dataclass
-class Message:
-    """
-    Strict message schema for all module communication.
-
-    Routes: action determines where message goes
-    - "decide" → brain module
-    - "execute" → executor module
-    - "record_state" → state module
-    - "get_state" → state module
-    """
-
-    action: str  # "decide", "execute", "record_state", "get_state"
-    platform: str  # "cli", "gui", "web", "system", "vision"
-    mode: str  # "visible", "headless", "hybrid"
-    data: Dict[str, Any] = field(default_factory=dict)
-    steps: List[Dict[str, Any]] = field(default_factory=list)
-    context: Dict[str, Any] = field(default_factory=dict)
-    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
-
-    def __post_init__(self):
-        """Validate schema after creation."""
-        valid_actions = {"decide", "execute", "record_state", "get_state"}
-        valid_platforms = {"cli", "gui", "web", "system", "vision"}
-        valid_modes = {"visible", "headless", "hybrid"}
-
-        if self.action not in valid_actions:
-            raise ValueError(f"action must be one of {valid_actions}, got {self.action}")
-        if self.platform not in valid_platforms:
-            raise ValueError(f"platform must be one of {valid_platforms}, got {self.platform}")
-        if self.mode not in valid_modes:
-            raise ValueError(f"mode must be one of {valid_modes}, got {self.mode}")
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Serialize to dict for logging."""
-        return {
-            "action": self.action,
-            "platform": self.platform,
-            "mode": self.mode,
-            "data": self.data,
-            "steps": self.steps,
-            "context": self.context,
-            "timestamp": self.timestamp,
-        }
-
-
-@dataclass
-class Response:
-    """Response from router action execution."""
-    success: bool
-    action: str  # which action was processed
-    data: Dict[str, Any] = field(default_factory=dict)
-    error: Optional[str] = None
-    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "success": self.success,
-            "action": self.action,
-            "data": self.data,
-            "error": self.error,
-            "timestamp": self.timestamp,
-        }
-
-
-
-================================================================================
 FILE: router/advanced_router.py
 ================================================================================
 
@@ -34482,116 +34402,6 @@ def create_router_from_config(config: Dict[str, Any]) -> AdvancedRouter:
                 pass
 
     return AdvancedRouter(routing_table)
-
-
-
-================================================================================
-FILE: router/routing_config.py
-================================================================================
-
-"""
-Router Configuration - Mapping definitions for AdvancedRouter.
-This is the ONLY place where action→module mapping happens.
-No hardcoding in router logic. All mapping here.
-"""
-
-from typing import Dict, Any, Callable
-
-# These will be imported at runtime
-# Format: "action" → "platform" → handler_function
-
-
-def build_routing_table() -> Dict[str, Dict[str, Callable]]:
-    """
-    Build routing table by importing module handlers.
-    Called at initialization time to wire everything up.
-
-    Returns:
-        routing_table[action][platform] = handler_callable
-    """
-    
-    # Import handlers lazily to avoid circular imports
-    from brain import analyze_intent, generate_action, check_safety
-    from executor import execute
-    from state import update_state, get_state, get_last_actions
-    
-    # Pure mapping table - NO LOGIC
-    routing_table = {
-        # ===== DECIDE ACTIONS =====
-        "decide": {
-            "cli": analyze_intent,           # CLI: analyze user input intent
-            "gui": analyze_intent,           # GUI: same handler (platform-agnostic)
-            "web": analyze_intent,           # WEB: same handler
-            "*": analyze_intent,             # Wildcard: default to analyze_intent
-        },
-
-        # ===== EXECUTE ACTIONS =====
-        "execute": {
-            "cli": execute,                  # CLI: run shell commands
-            "gui": execute,                  # GUI: run UI commands (same handler, message.data differs)
-            "*": execute,                    # Default: execute handler
-        },
-
-        # ===== STATE ACTIONS =====
-        "record_state": {
-            "*": update_state,               # State updates are platform-agnostic
-        },
-
-        "get_state": {
-            "*": get_state,                  # State retrieval is platform-agnostic
-        },
-
-        # ===== SAFETY ACTIONS =====
-        "check_safety": {
-            "cli": check_safety,             # CLI: check command safety
-            "*": check_safety,               # Default: same check
-        },
-
-        # ===== FUTURE ACTIONS =====
-        # "record_memory": { "*": memory.log_action },
-        # "get_context": { "*": state.get_last_actions },
-        # "abort": { "*": executor.abort },
-    }
-
-    return routing_table
-
-
-# Pre-built routing table (initialized at module load)
-ROUTING_TABLE = None
-
-
-def get_routing_table() -> Dict[str, Dict[str, Callable]]:
-    """Lazy-load routing table on first access."""
-    global ROUTING_TABLE
-    if ROUTING_TABLE is None:
-        ROUTING_TABLE = build_routing_table()
-    return ROUTING_TABLE
-
-
-# ===== CONFIG REFERENCE =====
-"""
-How to use the routing table:
-
-1. Add new action:
-   routing_table["my_action"] = {
-       "cli": my_handler,
-       "gui": my_handler,
-   }
-
-2. Use wildcard for platform-agnostic handlers:
-   routing_table["my_action"] = {
-       "*": universal_handler,
-   }
-
-3. Mix specific + wildcard:
-   routing_table["my_action"] = {
-       "cli": cli_specific_handler,
-       "*": fallback_handler,
-   }
-
-4. No decision logic here. Just mapping.
-   If you need routing logic, you're doing it wrong.
-"""
 
 
 
@@ -35164,122 +34974,6 @@ elif message.action == "my_new_action":
 
 
 ================================================================================
-FILE: router/router.py
-================================================================================
-
-"""
-Router dispatcher - routes messages between modules.
-Central nervous system. No decision logic - only mapping.
-"""
-
-from .message import Message, Response
-from brain import analyze_intent, generate_action
-from router.model_selector import select_model
-
-
-def route(message: Message) -> Response:
-    """
-    Route a message to the appropriate module based on action.
-    This is the ONLY place where modules are imported/called.
-
-    Routing:
-    - "decide" → brain module (decision making)
-    - "execute" → executor module (step execution)
-    - "record_state" → state module (update status)
-    - "get_state" → state module (retrieve status)
-
-    Args:
-        message: Message object with action, platform, mode, data, steps
-
-    Returns:
-        Response object with success status and result data
-    """
-
-    try:
-        if message.action == "decide":
-            from brain import analyze_intent, generate_action
-            from router.model_selector import select_model
-            user_input = message.data.get("user_input", "")
-
-            # Select appropriate model with fallback strategy
-            selected_model = select_model(user_input)
-
-            # Analyze intent
-            intent = analyze_intent(user_input)
-
-            # Generate action with selected model
-            action = generate_action(
-                message.data.get("user_input", ""),
-                context=message.context,
-                model=selected_model
-            )
-
-            return Response(
-                success=True,
-                action="decide",
-                data={
-                    "intent": intent,
-                    "action": action,
-                    "selected_model": selected_model,
-                }
-            )
-
-        elif message.action == "execute":
-            # Import here to avoid circular dependencies
-            from executor import execute
-
-            result = execute(message)
-            return Response(
-                success=result.get("success", False),
-                action="execute",
-                data=result
-            )
-
-        elif message.action == "record_state":
-            # Import here to avoid circular dependencies
-            from state import update_state
-
-            result = update_state(message.data)
-            return Response(
-                success=result.get("success", False),
-                action="record_state",
-                data=result
-            )
-
-        elif message.action == "get_state":
-            # Import here to avoid circular dependencies
-            from state import get_state
-
-            result = get_state()
-            return Response(
-                success=True,
-                action="get_state",
-                data=result
-            )
-
-        else:
-            return Response(
-                success=False,
-                action=message.action,
-                error=f"Unknown action: {message.action}"
-            )
-
-    except ImportError as e:
-        return Response(
-            success=False,
-            action=message.action,
-            error=f"Module import error: {str(e)}"
-        )
-    except Exception as e:
-        return Response(
-            success=False,
-            action=message.action,
-            error=f"Routing error: {str(e)}"
-        )
-
-
-
-================================================================================
 FILE: router/model_selector.py
 ================================================================================
 
@@ -35374,6 +35068,292 @@ def select_model(user_input):
             print(f"✗ llama3.2:3b also failed: {str(e2)}")
             print("→ Using llama3.2:3b as final fallback")
             return "llama3.2:3b"
+
+
+
+================================================================================
+FILE: router/message.py
+================================================================================
+
+"""
+Router packet schema - source/target/action/payload.
+Strict structure for all inter-module communication.
+"""
+
+from typing import Any, Dict, Optional
+from dataclasses import dataclass, field
+from datetime import datetime
+
+
+@dataclass
+class Message:
+    """
+    Router packet schema - strictly defined for all inter-module communication.
+    Every message MUST know source, target, and action.
+
+    Routes: target determines where message goes
+    - source: "scout", "executor", "coder", "query_maker1", etc.
+    - target: "executor", "query_maker1", "coder", "thinker", etc.
+    - action: "dispatch_model", "dispatch_tool", "run_query_maker", etc.
+    """
+
+    source: str  # Who sent this: "scout", "executor", etc.
+    target: str  # Who receives this: "executor", "coder", "query_maker1", etc.
+    action: str  # What to do: "dispatch_model", "dispatch_tool", "run_query_maker", etc.
+    payload: Dict[str, Any] = field(default_factory=dict)  # Data for the target
+    context: Dict[str, Any] = field(default_factory=dict)  # Execution context
+    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+
+    def __post_init__(self):
+        """Validate schema after creation."""
+        valid_actions = {
+            "dispatch_model",
+            "dispatch_tool",
+            "run_query_maker",
+            "restart_service",
+            "health_check",
+            "queue_task",
+            "abort_task",
+            "record_state",
+            "get_state",
+            "verify_result",
+        }
+
+        if self.action not in valid_actions:
+            raise ValueError(f"action must be one of {valid_actions}, got {self.action}")
+        if not self.source:
+            raise ValueError("source cannot be empty")
+        if not self.target:
+            raise ValueError("target cannot be empty")
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to dict for logging."""
+        return {
+            "source": self.source,
+            "target": self.target,
+            "action": self.action,
+            "payload": self.payload,
+            "context": self.context,
+            "timestamp": self.timestamp,
+        }
+
+
+@dataclass
+class Response:
+    """Response from router action execution - same source/target pattern."""
+    source: str  # Who generated this response (the service that processed it)
+    success: bool
+    result: Dict[str, Any] = field(default_factory=dict)
+    error: Optional[str] = None
+    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "source": self.source,
+            "success": self.success,
+            "result": self.result,
+            "error": self.error,
+            "timestamp": self.timestamp,
+        }
+
+
+
+================================================================================
+FILE: router/router.py
+================================================================================
+
+"""
+Router - Central nervous system infrastructure.
+Routes packets between services based on source/target/action.
+Does NOT think, decide, or plan - only transports and executes.
+"""
+
+from .message import Message, Response
+from typing import Dict, Callable, Optional
+
+
+# Service registry - loaded at startup
+SERVICES: Dict[str, Callable] = {}
+
+
+def register_service(name: str, handler: Callable):
+    """Register a service handler (executor, coder, query_maker, etc)."""
+    SERVICES[name] = handler
+
+
+def dispatch(message: Message) -> Response:
+    """
+    Dispatch packet to target service.
+
+    Routes based on message.target:
+    - "executor" → execute tool/command
+    - "query_maker1" → run query maker
+    - "coder" → code generation
+    - "thinker" → deep reasoning
+    - etc.
+
+    Args:
+        message: Message with source, target, action, payload
+
+    Returns:
+        Response from service with success status and result
+    """
+    try:
+        # Validate packet structure
+        if not message.target:
+            return Response(
+                source="router",
+                success=False,
+                error="target required in packet"
+            )
+
+        # Look up service handler
+        service = SERVICES.get(message.target)
+        if not service:
+            return Response(
+                source="router",
+                success=False,
+                error=f"service '{message.target}' not registered. Available: {list(SERVICES.keys())}"
+            )
+
+        # Execute service with packet payload
+        result = service(message)
+
+        # Ensure response is Response object
+        if not isinstance(result, Response):
+            result = Response(
+                source=message.target,
+                success=True,
+                result=result if isinstance(result, dict) else {"result": result}
+            )
+
+        return result
+
+    except Exception as e:
+        return Response(
+            source="router",
+            success=False,
+            error=f"dispatch failed: {str(e)}"
+        )
+
+
+def send_to_service(target: str, action: str, payload: dict, context: dict = None) -> Response:
+    """
+    Convenience function - build packet and dispatch to service.
+
+    Args:
+        target: service name
+        action: what to do
+        payload: data for service
+        context: optional execution context
+
+    Returns:
+        Response from service
+    """
+    message = Message(
+        source="router",
+        target=target,
+        action=action,
+        payload=payload,
+        context=context or {}
+    )
+    return dispatch(message)
+
+
+
+================================================================================
+FILE: router/routing_config.py
+================================================================================
+
+"""
+Router Services Configuration - Infrastructure metadata only.
+Defines what services exist, their timeouts, and recovery behavior.
+NO cognitive logic. NO brain imports.
+"""
+
+from typing import Dict, Any
+
+
+SERVICES = {
+    # Core execution services
+    "executor": {
+        "timeout": 30,
+        "restartable": True,
+        "max_retries": 3,
+        "healthcheck": "ping",
+    },
+
+    # Query makers - context generators
+    "query_maker1": {
+        "timeout": 15,
+        "restartable": True,
+        "max_retries": 2,
+    },
+
+    "query_maker2": {
+        "timeout": 15,
+        "restartable": True,
+        "max_retries": 2,
+    },
+
+    # Specialist models
+    "vision_memory": {
+        "timeout": 20,
+        "restartable": True,
+        "max_retries": 2,
+    },
+
+    "fast_executor": {
+        "timeout": 10,
+        "restartable": True,
+        "max_retries": 2,
+    },
+
+    "coder": {
+        "timeout": 120,
+        "restartable": True,
+        "max_retries": 1,
+    },
+
+    "thinker": {
+        "timeout": 180,
+        "restartable": True,
+        "max_retries": 1,
+    },
+
+    # System services
+    "browser_tools": {
+        "timeout": 30,
+        "restartable": True,
+        "max_retries": 2,
+    },
+
+    "os_tools": {
+        "timeout": 30,
+        "restartable": True,
+        "max_retries": 2,
+    },
+}
+
+
+def get_service_config(service_name: str) -> Dict[str, Any]:
+    """Get configuration for a service."""
+    return SERVICES.get(service_name, {})
+
+
+def is_restartable(service_name: str) -> bool:
+    """Check if service supports restart on failure."""
+    return SERVICES.get(service_name, {}).get("restartable", False)
+
+
+def get_timeout(service_name: str) -> int:
+    """Get timeout in seconds for service."""
+    return SERVICES.get(service_name, {}).get("timeout", 30)
+
+
+def get_max_retries(service_name: str) -> int:
+    """Get max retry count for service."""
+    return SERVICES.get(service_name, {}).get("max_retries", 3)
 
 
 
@@ -64760,21 +64740,6 @@ else
 fi
 
 echo ""
-
-
-
-================================================================================
-FILE: gemma_connector/__init__.py
-================================================================================
-
-from .connector import api
-
-
-
-================================================================================
-FILE: gemma_connector/config.py
-================================================================================
-
 
 
 
