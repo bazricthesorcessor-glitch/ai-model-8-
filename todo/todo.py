@@ -1,6 +1,6 @@
 """
-TODO system - task tracking and progress management.
-Track tasks, steps, and progress similar to Claude Code.
+TODO system - task tracking and execution plan management.
+Track tasks like Claude Code and manage multi-step execution plans.
 """
 
 from typing import List, Dict, Optional
@@ -9,6 +9,9 @@ from enum import Enum
 import json
 import os
 from datetime import datetime
+
+# Import new schema classes
+from .schemas import ExecutionPlan, ExecutionStep, StepObservation, StepStatus
 
 
 class TaskStatus(Enum):
@@ -185,6 +188,287 @@ class TodoManager:
                 print(f"   → {task.active_form}")
             if task.status == "blocked" and task.notes:
                 print(f"   🛑 {task.notes}")
+
+    # ========================================================================
+    # NEW: ExecutionPlan methods (for multi-step task execution)
+    # ========================================================================
+
+    def start_plan(self, plan: ExecutionPlan) -> ExecutionPlan:
+        """
+        Start an execution plan.
+
+        Args:
+            plan: ExecutionPlan to start
+
+        Returns:
+            Updated plan with status changed to IN_PROGRESS
+        """
+        plan.status = "in_progress"
+        plan.started_at = datetime.now().isoformat()
+
+        # Mark first step as in progress if not already
+        if plan.current_step_id and not plan.get_current_step():
+            plan.current_step_id = None
+
+        # Set current step to first pending step
+        if not plan.current_step_id and plan.steps:
+            plan.current_step_id = plan.steps[0].id
+            plan.steps[0].status = StepStatus.IN_PROGRESS
+            plan.steps[0].started_at = datetime.now().isoformat()
+
+        return plan
+
+    def get_current_step(self, plan: ExecutionPlan) -> Optional[ExecutionStep]:
+        """Get the currently executing step."""
+        if not plan.current_step_id:
+            return None
+        for step in plan.steps:
+            if step.id == plan.current_step_id:
+                return step
+        return None
+
+    def mark_step_started(self, plan: ExecutionPlan, step_id: str) -> bool:
+        """
+        Mark a step as in progress.
+
+        Args:
+            plan: ExecutionPlan
+            step_id: ID of step to start
+
+        Returns:
+            True if step was marked started
+        """
+        for step in plan.steps:
+            if step.id == step_id:
+                if step.status == StepStatus.PENDING:
+                    step.status = StepStatus.IN_PROGRESS
+                    step.started_at = datetime.now().isoformat()
+                    plan.current_step_id = step_id
+                    plan.status = "in_progress"
+                    return True
+        return False
+
+    def record_observation(
+        self,
+        plan: ExecutionPlan,
+        step_id: str,
+        observation: StepObservation,
+    ) -> bool:
+        """
+        Record observation/feedback from step execution.
+
+        Args:
+            plan: ExecutionPlan
+            step_id: ID of step that was observed
+            observation: StepObservation with feedback
+
+        Returns:
+            True if observation was recorded
+        """
+        for step in plan.steps:
+            if step.id == step_id:
+                step.last_observation = observation.to_dict()
+                # Optionally record to history
+                plan.history.append({
+                    "timestamp": datetime.now().isoformat(),
+                    "step_id": step_id,
+                    "event": "observation",
+                    "observation": observation.to_dict(),
+                })
+                return True
+        return False
+
+    def mark_step_completed(
+        self,
+        plan: ExecutionPlan,
+        step_id: str,
+        actual_result: str = "",
+    ) -> bool:
+        """
+        Mark a step as completed.
+
+        Args:
+            plan: ExecutionPlan
+            step_id: ID of step
+            actual_result: What actually happened
+
+        Returns:
+            True if step was marked completed
+        """
+        for step in plan.steps:
+            if step.id == step_id:
+                step.status = StepStatus.COMPLETED
+                step.actual_result = actual_result
+                step.completed_at = datetime.now().isoformat()
+                plan.history.append({
+                    "timestamp": datetime.now().isoformat(),
+                    "step_id": step_id,
+                    "event": "completed",
+                    "actual_result": actual_result,
+                })
+                return True
+        return False
+
+    def mark_step_failed(
+        self,
+        plan: ExecutionPlan,
+        step_id: str,
+        reason: str = "",
+    ) -> bool:
+        """
+        Mark a step as failed.
+
+        Args:
+            plan: ExecutionPlan
+            step_id: ID of step
+            reason: Why it failed
+
+        Returns:
+            True if step was marked failed
+        """
+        for step in plan.steps:
+            if step.id == step_id:
+                step.status = StepStatus.FAILED
+                step.error = reason
+                plan.history.append({
+                    "timestamp": datetime.now().isoformat(),
+                    "step_id": step_id,
+                    "event": "failed",
+                    "reason": reason,
+                })
+                return True
+        return False
+
+    def get_next_step(self, plan: ExecutionPlan) -> Optional[ExecutionStep]:
+        """
+        Get the next step that should be executed.
+
+        Respects dependencies: only returns steps whose dependencies are completed.
+
+        Returns:
+            Next ExecutionStep or None if no more steps
+        """
+        for step in plan.steps:
+            if step.status == StepStatus.PENDING:
+                # Check dependencies
+                if self._dependencies_met(plan, step):
+                    return step
+        return None
+
+    def _dependencies_met(self, plan: ExecutionPlan, step: ExecutionStep) -> bool:
+        """Check if all dependencies of a step are completed."""
+        for dep_id in step.depends_on:
+            dep_step = None
+            for s in plan.steps:
+                if s.id == dep_id:
+                    dep_step = s
+                    break
+            if not dep_step or dep_step.status != StepStatus.COMPLETED:
+                return False
+        return True
+
+    def can_continue(self, plan: ExecutionPlan) -> bool:
+        """
+        Check if plan can continue (not blocked/failed).
+
+        Returns:
+            True if plan is in progress or has next steps available
+        """
+        # Check if plan is complete
+        if plan.is_complete():
+            return False
+
+        # Check for blocked steps
+        for step in plan.steps:
+            if step.status == StepStatus.BLOCKED:
+                # Plan is blocked if a step is blocked and not yet resolved
+                return False
+
+        # Can continue if there's a next step or current step is in progress
+        return plan.get_next_incomplete_step() is not None or plan.get_current_step() is not None
+
+    def get_remaining_steps(self, plan: ExecutionPlan) -> List[ExecutionStep]:
+        """Get all remaining (not completed/skipped) steps."""
+        return plan.get_remaining_steps()
+
+    def save_plan(self, plan: ExecutionPlan, filename: str = None) -> bool:
+        """
+        Save execution plan to file.
+
+        Args:
+            plan: ExecutionPlan to save
+            filename: Optional filename (defaults to plan_id)
+
+        Returns:
+            True if saved successfully
+        """
+        try:
+            if not filename:
+                filename = plan.plan_id
+            filepath = os.path.join(self.todo_dir, f"{filename}.json")
+            with open(filepath, "w") as f:
+                json.dump(plan.to_dict(), f, indent=2)
+            return True
+        except Exception as e:
+            print(f"Error saving plan: {e}")
+            return False
+
+    def load_plan(self, filename: str) -> Optional[ExecutionPlan]:
+        """
+        Load execution plan from file.
+
+        Args:
+            filename: Filename to load
+
+        Returns:
+            ExecutionPlan or None if not found
+        """
+        try:
+            filepath = os.path.join(self.todo_dir, f"{filename}.json")
+            with open(filepath, "r") as f:
+                data = json.load(f)
+
+            # Reconstruct ExecutionPlan from dict
+            # This is a simplified version; proper deserialization might be more complex
+            plan = ExecutionPlan(
+                plan_id=data["plan_id"],
+                objective=data["objective"],
+                created_by=data["created_by"],
+                status=data.get("status", "created"),
+                created_at=data.get("created_at"),
+                started_at=data.get("started_at"),
+                completed_at=data.get("completed_at"),
+                history=data.get("history", []),
+                context=data.get("context", {}),
+            )
+
+            # Reconstruct steps (simplified)
+            for step_data in data.get("steps", []):
+                step = ExecutionStep(
+                    id=step_data["id"],
+                    description=step_data["description"],
+                    target=step_data["target"],
+                    action=step_data["action"],
+                    expected_result=step_data["expected_result"],
+                    status=StepStatus(step_data.get("status", "pending")),
+                    payload=step_data.get("payload", {}),
+                    success_criteria=step_data.get("success_criteria", []),
+                    query_maker=step_data.get("query_maker"),
+                    retry_count=step_data.get("retry_count", 0),
+                    max_retries=step_data.get("max_retries", 3),
+                    actual_result=step_data.get("actual_result"),
+                    error=step_data.get("error"),
+                    depends_on=step_data.get("depends_on", []),
+                )
+                plan.steps.append(step)
+
+            plan.current_step_id = data.get("current_step_id")
+            return plan
+        except FileNotFoundError:
+            return None
+        except Exception as e:
+            print(f"Error loading plan: {e}")
+            return None
 
 
 # ============================================================================

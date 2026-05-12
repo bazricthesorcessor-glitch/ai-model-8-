@@ -11,6 +11,7 @@
 │   ├── action_parser.py
 │   ├── brain.py
 │   ├── __init__.py
+│   ├── json_utils.py
 │   ├── llm.py
 │   ├── observer.py
 │   ├── planner.py
@@ -21,12 +22,15 @@
 │   │   ├── brain.cpython-314.pyc
 │   │   ├── __init__.cpython-311.pyc
 │   │   ├── __init__.cpython-314.pyc
+│   │   ├── json_utils.cpython-314.pyc
 │   │   ├── llm.cpython-311.pyc
 │   │   ├── llm.cpython-314.pyc
 │   │   ├── observer.cpython-314.pyc
 │   │   ├── planner.cpython-314.pyc
-│   │   └── router.cpython-314.pyc
-│   └── README.md
+│   │   ├── router.cpython-314.pyc
+│   │   └── supervisor.cpython-314.pyc
+│   ├── README.md
+│   └── supervisor.py
 ├── CAELESTIA_DOCUMENTATION.md
 ├── CLEANUP_CHECKLIST.md
 ├── codebase_full.txt
@@ -327,4 +331,4 @@
 ├── whatsapp
 └── WORKFLOW_STRUCTURE.md
 
-67 directories, 261 files
+67 directories, 265 files

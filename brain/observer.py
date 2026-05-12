@@ -6,9 +6,11 @@ Answers: What happened? Was it expected? Should we continue?
 from typing import Dict, Any, Optional
 from todo.schemas import StepObservation
 from brain.llm import get_llm_response
+from brain.json_utils import extract_json_object
 
 
 def observe_step_result(
+    step_id: str,
     step_description: str,
     expected_result: str,
     success_criteria: list,
@@ -20,6 +22,7 @@ def observe_step_result(
     Uses LLM to compare expected vs actual and determine next action.
 
     Args:
+        step_id: ID of the step being observed
         step_description: What the step was supposed to do
         expected_result: What success looks like
         success_criteria: List of criteria that indicate success
@@ -60,9 +63,19 @@ Respond in JSON:
     try:
         response_text = get_llm_response(prompt, role="deep_thinking_model")
 
-        # Parse JSON response
-        import json
-        response_json = json.loads(response_text)
+        # Parse JSON response robustly
+        response_json = extract_json_object(response_text)
+        if response_json is None:
+            print("⚠ Observer failed to extract JSON, returning uncertain")
+            return StepObservation(
+                step_id=step_id,
+                matched_expectation=False,
+                confidence=0.0,
+                status="uncertain",
+                reason="Observer could not parse response",
+                recommended_next="stop",
+                feedback=actual_feedback,
+            )
 
         succeeded = response_json.get("succeeded", False)
         confidence = float(response_json.get("confidence", 0.5))
@@ -83,7 +96,7 @@ Respond in JSON:
             recommended = "stop"
 
         return StepObservation(
-            step_id="",  # Will be set by caller
+            step_id=step_id,
             matched_expectation=succeeded,
             confidence=confidence,
             status=status,
@@ -94,8 +107,9 @@ Respond in JSON:
 
     except Exception as e:
         # Fallback to conservative assessment
+        print(f"⚠ Observer error: {str(e)}")
         return StepObservation(
-            step_id="",
+            step_id=step_id,
             matched_expectation=False,
             confidence=0.0,
             status="uncertain",

@@ -46661,147 +46661,140 @@ def generate_action_legacy(user_input, context=None, model=None) -> dict:
 
 
 ================================================================================
-FILE: brain/observer.py
+FILE: brain/json_utils.py
 ================================================================================
 
 """
-Observer - verifies step execution against expected results.
-Answers: What happened? Was it expected? Should we continue?
+JSON extraction utilities - robustly extract JSON from LLM responses.
+
+LLMs often wrap JSON in markdown blocks or explanatory text:
+    "Here is the plan:
+    ```json
+    [...]
+    ```"
+
+This module extracts the actual JSON, hiding that complexity.
 """
 
-from typing import Dict, Any, Optional
-from todo.schemas import StepObservation
-from brain.llm import get_llm_response
+import json
+import re
+from typing import Any, Optional, Union
 
 
-def observe_step_result(
-    step_description: str,
-    expected_result: str,
-    success_criteria: list,
-    actual_feedback: str,
-) -> StepObservation:
+def extract_json_object(text: str) -> Optional[dict]:
     """
-    Observe and interpret step execution result.
+    Extract JSON object from text that may contain markdown or explanatory text.
 
-    Uses LLM to compare expected vs actual and determine next action.
+    Handles formats like:
+    - Bare JSON: {...}
+    - Markdown blocks: ```json {...} ```
+    - Wrapped in text: "Here's the JSON: {...}"
 
     Args:
-        step_description: What the step was supposed to do
-        expected_result: What success looks like
-        success_criteria: List of criteria that indicate success
-        actual_feedback: What actually happened
+        text: Text potentially containing JSON
 
     Returns:
-        StepObservation with confidence, status, and recommendation
+        Parsed dict or None if no valid JSON found
     """
+    if not text:
+        return None
 
-    prompt = f"""You are an execution observer. Verify if a step succeeded.
+    # Try 1: Strip markdown code blocks
+    json_match = re.search(r"```(?:json)?\s*(\{[^`]*\})\s*```", text, re.DOTALL)
+    if json_match:
+        try:
+            return json.loads(json_match.group(1))
+        except json.JSONDecodeError:
+            pass
 
-STEP: {step_description}
+    # Try 2: Find bare JSON object
+    # Look for { ... } at various indentation levels
+    brace_match = re.search(r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", text, re.DOTALL)
+    if brace_match:
+        try:
+            return json.loads(brace_match.group(0))
+        except json.JSONDecodeError:
+            pass
 
-EXPECTED RESULT:
-{expected_result}
-
-SUCCESS CRITERIA:
-{chr(10).join(f"- {crit}" for crit in success_criteria)}
-
-ACTUAL FEEDBACK:
-{actual_feedback}
-
-Analyze:
-1. Did the step succeed? (Yes/No/Uncertain)
-2. Confidence level (0.0 to 1.0)
-3. Reason for your assessment
-4. What should happen next? (continue/retry/replan/stop)
-
-Respond in JSON:
-{{
-    "succeeded": true/false,
-    "confidence": 0.85,
-    "reason": "Explanation here",
-    "next_action": "continue"
-}}
-"""
-
+    # Try 3: Try parsing the entire text (maybe it's valid JSON after stripping)
     try:
-        response_text = get_llm_response(prompt, role="deep_thinking_model")
+        stripped = text.strip()
+        if stripped.startswith("{"):
+            return json.loads(stripped)
+    except json.JSONDecodeError:
+        pass
 
-        # Parse JSON response
-        import json
-        response_json = json.loads(response_text)
-
-        succeeded = response_json.get("succeeded", False)
-        confidence = float(response_json.get("confidence", 0.5))
-        reason = response_json.get("reason", "Unknown")
-        next_action = response_json.get("next_action", "stop")
-
-        # Determine status
-        if succeeded:
-            status = "success"
-        elif confidence < 0.3:
-            status = "uncertain"
-        else:
-            status = "failed"
-
-        # Map next_action to our enums
-        recommended = next_action.lower()
-        if recommended not in ["continue", "retry", "replan", "stop"]:
-            recommended = "stop"
-
-        return StepObservation(
-            step_id="",  # Will be set by caller
-            matched_expectation=succeeded,
-            confidence=confidence,
-            status=status,
-            reason=reason,
-            recommended_next=recommended,
-            feedback=actual_feedback,
-        )
-
-    except Exception as e:
-        # Fallback to conservative assessment
-        return StepObservation(
-            step_id="",
-            matched_expectation=False,
-            confidence=0.0,
-            status="uncertain",
-            reason=f"Observer error: {str(e)}",
-            recommended_next="stop",
-            feedback=actual_feedback,
-        )
+    return None
 
 
-def simple_observe(
-    expected: str,
-    actual: str,
-    success_indicators: Optional[list] = None
-) -> bool:
+def extract_json_array(text: str) -> Optional[list]:
     """
-    Simple observation: does actual contain expected patterns?
-    Use for quick checks without LLM.
+    Extract JSON array from text that may contain markdown or explanatory text.
+
+    Handles formats like:
+    - Bare JSON: [...]
+    - Markdown blocks: ```json [...] ```
+    - Wrapped in text: "Here are the items: [...]"
 
     Args:
-        expected: Expected output substring/pattern
-        actual: Actual output
-        success_indicators: List of patterns, any matching = success
+        text: Text potentially containing JSON array
 
     Returns:
-        True if expected found or success_indicator matched
+        Parsed list or None if no valid JSON array found
     """
-    actual_lower = actual.lower()
-    expected_lower = expected.lower()
+    if not text:
+        return None
 
-    # Check if expected appears in actual
-    if expected_lower in actual_lower:
-        return True
+    # Try 1: Strip markdown code blocks
+    json_match = re.search(r"```(?:json)?\s*(\[[^\]`]*(?:\{[^{}]*\}[^\]`]*)*\])\s*```", text, re.DOTALL)
+    if json_match:
+        try:
+            return json.loads(json_match.group(1))
+        except json.JSONDecodeError:
+            pass
 
-    # Check success indicators
-    if success_indicators:
-        for indicator in success_indicators:
-            if indicator.lower() in actual_lower:
-                return True
+    # Try 2: Find bare JSON array
+    bracket_match = re.search(r"\[[^\[\]]*(?:\{[^{}]*\}[^\[\]]*)*\]", text, re.DOTALL)
+    if bracket_match:
+        try:
+            return json.loads(bracket_match.group(0))
+        except json.JSONDecodeError:
+            pass
 
-    return False
+    # Try 3: Try parsing the entire text
+    try:
+        stripped = text.strip()
+        if stripped.startswith("["):
+            return json.loads(stripped)
+    except json.JSONDecodeError:
+        pass
+
+    return None
+
+
+def extract_json(text: str) -> Optional[Union[dict, list]]:
+    """
+    Extract JSON (object or array) from text.
+
+    Tries to parse as object first, then array.
+
+    Args:
+        text: Text potentially containing JSON
+
+    Returns:
+        Parsed JSON (dict or list) or None if not found
+    """
+    # Try object first
+    obj = extract_json_object(text)
+    if obj is not None:
+        return obj
+
+    # Try array
+    arr = extract_json_array(text)
+    if arr is not None:
+        return arr
+
+    return None
 
 
 
@@ -46817,7 +46810,9 @@ Asks GPT-OSS: "Generate steps, expected results, risks, and fallback conditions.
 from typing import Dict, Any, List
 from todo.schemas import ExecutionPlan, ExecutionStep, StepStatus
 from brain.llm import get_llm_response
+from brain.json_utils import extract_json_array
 import json
+import uuid
 
 
 def create_plan(objective: str, context: Dict[str, Any] = None) -> ExecutionPlan:
@@ -46884,12 +46879,15 @@ Respond with JSON array of steps:
     try:
         response_text = get_llm_response(prompt, role="deep_thinking_model")
 
-        # Parse JSON response
-        steps_data = json.loads(response_text)
+        # Parse JSON response robustly
+        steps_data = extract_json_array(response_text)
+        if steps_data is None:
+            print("⚠ Planner failed to extract JSON from response, using fallback")
+            steps_data = []
 
         # Build ExecutionPlan
         plan = ExecutionPlan(
-            plan_id=f"plan_{objective[:20].lower().replace(' ', '_')}",
+            plan_id=f"plan_{uuid.uuid4().hex[:8]}",
             objective=objective,
             created_by="brain",
             context=context or {},
@@ -46920,7 +46918,7 @@ Respond with JSON array of steps:
         # Fallback: create simple single-step plan
         print(f"⚠ Planner error: {str(e)}, creating fallback plan")
         plan = ExecutionPlan(
-            plan_id="plan_fallback",
+            plan_id=f"plan_{uuid.uuid4().hex[:8]}",
             objective=objective,
             created_by="brain",
             context={"error": str(e)},
@@ -46948,7 +46946,7 @@ def create_simple_plan(objective: str) -> ExecutionPlan:
     Used for quick/obvious tasks.
     """
     plan = ExecutionPlan(
-        plan_id=f"simple_{objective[:15].lower().replace(' ', '_')}",
+        plan_id=f"plan_{uuid.uuid4().hex[:8]}",
         objective=objective,
         created_by="brain",
     )
@@ -47004,18 +47002,476 @@ def classify_task_size(objective: str) -> str:
 
 
 ================================================================================
+FILE: brain/observer.py
+================================================================================
+
+"""
+Observer - verifies step execution against expected results.
+Answers: What happened? Was it expected? Should we continue?
+"""
+
+from typing import Dict, Any, Optional
+from todo.schemas import StepObservation
+from brain.llm import get_llm_response
+from brain.json_utils import extract_json_object
+
+
+def observe_step_result(
+    step_id: str,
+    step_description: str,
+    expected_result: str,
+    success_criteria: list,
+    actual_feedback: str,
+) -> StepObservation:
+    """
+    Observe and interpret step execution result.
+
+    Uses LLM to compare expected vs actual and determine next action.
+
+    Args:
+        step_id: ID of the step being observed
+        step_description: What the step was supposed to do
+        expected_result: What success looks like
+        success_criteria: List of criteria that indicate success
+        actual_feedback: What actually happened
+
+    Returns:
+        StepObservation with confidence, status, and recommendation
+    """
+
+    prompt = f"""You are an execution observer. Verify if a step succeeded.
+
+STEP: {step_description}
+
+EXPECTED RESULT:
+{expected_result}
+
+SUCCESS CRITERIA:
+{chr(10).join(f"- {crit}" for crit in success_criteria)}
+
+ACTUAL FEEDBACK:
+{actual_feedback}
+
+Analyze:
+1. Did the step succeed? (Yes/No/Uncertain)
+2. Confidence level (0.0 to 1.0)
+3. Reason for your assessment
+4. What should happen next? (continue/retry/replan/stop)
+
+Respond in JSON:
+{{
+    "succeeded": true/false,
+    "confidence": 0.85,
+    "reason": "Explanation here",
+    "next_action": "continue"
+}}
+"""
+
+    try:
+        response_text = get_llm_response(prompt, role="deep_thinking_model")
+
+        # Parse JSON response robustly
+        response_json = extract_json_object(response_text)
+        if response_json is None:
+            print("⚠ Observer failed to extract JSON, returning uncertain")
+            return StepObservation(
+                step_id=step_id,
+                matched_expectation=False,
+                confidence=0.0,
+                status="uncertain",
+                reason="Observer could not parse response",
+                recommended_next="stop",
+                feedback=actual_feedback,
+            )
+
+        succeeded = response_json.get("succeeded", False)
+        confidence = float(response_json.get("confidence", 0.5))
+        reason = response_json.get("reason", "Unknown")
+        next_action = response_json.get("next_action", "stop")
+
+        # Determine status
+        if succeeded:
+            status = "success"
+        elif confidence < 0.3:
+            status = "uncertain"
+        else:
+            status = "failed"
+
+        # Map next_action to our enums
+        recommended = next_action.lower()
+        if recommended not in ["continue", "retry", "replan", "stop"]:
+            recommended = "stop"
+
+        return StepObservation(
+            step_id=step_id,
+            matched_expectation=succeeded,
+            confidence=confidence,
+            status=status,
+            reason=reason,
+            recommended_next=recommended,
+            feedback=actual_feedback,
+        )
+
+    except Exception as e:
+        # Fallback to conservative assessment
+        print(f"⚠ Observer error: {str(e)}")
+        return StepObservation(
+            step_id=step_id,
+            matched_expectation=False,
+            confidence=0.0,
+            status="uncertain",
+            reason=f"Observer error: {str(e)}",
+            recommended_next="stop",
+            feedback=actual_feedback,
+        )
+
+
+def simple_observe(
+    expected: str,
+    actual: str,
+    success_indicators: Optional[list] = None
+) -> bool:
+    """
+    Simple observation: does actual contain expected patterns?
+    Use for quick checks without LLM.
+
+    Args:
+        expected: Expected output substring/pattern
+        actual: Actual output
+        success_indicators: List of patterns, any matching = success
+
+    Returns:
+        True if expected found or success_indicator matched
+    """
+    actual_lower = actual.lower()
+    expected_lower = expected.lower()
+
+    # Check if expected appears in actual
+    if expected_lower in actual_lower:
+        return True
+
+    # Check success indicators
+    if success_indicators:
+        for indicator in success_indicators:
+            if indicator.lower() in actual_lower:
+                return True
+
+    return False
+
+
+
+================================================================================
+FILE: brain/supervisor.py
+================================================================================
+
+"""
+Supervisor - controls the multi-step execution loop.
+
+Coordinates:
+1. Get current step
+2. Prepare message for router/executor/coder
+3. Handle response from service
+4. Observe/verify results
+5. Update todo with state
+6. Decide: continue/retry/replan/stop
+
+This is the real "brain" of long-task execution.
+"""
+
+from typing import Dict, Any, Optional, Tuple
+from todo.schemas import ExecutionPlan, ExecutionStep, StepObservation, StepStatus
+from todo import TodoManager
+from brain.observer import observe_step_result
+from router import Message
+import uuid
+
+
+class Supervisor:
+    """
+    Execution supervisor - controls step-by-step task execution.
+
+    Handles the loop:
+    - Current step
+    - Query maker selection
+    - Service dispatch
+    - Result observation
+    - State update
+    - Decision: continue/retry/replan/stop
+    """
+
+    def __init__(self):
+        """Initialize supervisor."""
+        self.todo_manager = TodoManager()
+
+    def prepare_step_message(
+        self,
+        plan: ExecutionPlan,
+        step: ExecutionStep,
+    ) -> Optional[Message]:
+        """
+        Prepare a router Message for step execution.
+
+        Includes query maker context if needed.
+
+        Args:
+            plan: Current execution plan
+            step: Step to execute
+
+        Returns:
+            Message ready for router, or None if can't prepare
+        """
+        # Decide if we need query maker context
+        query_maker_name = step.query_maker or self._select_default_query_maker(step.target)
+
+        # Build payload with context
+        payload = {
+            **step.payload,
+            "plan_id": plan.plan_id,
+            "step_id": step.id,
+            "expected_result": step.expected_result,
+        }
+
+        # Build message
+        message = Message(
+            source="supervisor",
+            target=step.target,
+            action=step.action,
+            payload=payload,
+            context={
+                "plan_id": plan.plan_id,
+                "step_id": step.id,
+                "query_maker": query_maker_name,
+                "plan_objective": plan.objective,
+            },
+        )
+
+        return message
+
+    def _select_default_query_maker(self, target: str) -> str:
+        """
+        Select default query maker based on target service.
+
+        Rules:
+        - executor/fast → query_maker1
+        - coder/thinker → query_maker2
+        - default → query_maker1
+        """
+        if target in ["executor", "fast_executor"]:
+            return "query_maker1"
+        if target in ["coder", "thinker"]:
+            return "query_maker2"
+        return "query_maker1"
+
+    def handle_service_response(
+        self,
+        plan: ExecutionPlan,
+        step: ExecutionStep,
+        service_response: Dict[str, Any],
+    ) -> StepObservation:
+        """
+        Handle response from a service (executor, coder, etc).
+
+        Extract feedback and create observation.
+
+        Args:
+            plan: Execution plan
+            step: Step that was executed
+            service_response: Response dict from service
+
+        Returns:
+            StepObservation with result assessment
+        """
+        # Extract feedback from response
+        success = service_response.get("success", False)
+        result = service_response.get("result", {})
+        error = service_response.get("error")
+
+        # Build feedback string
+        if success:
+            feedback = f"Success. Result: {result}"
+        else:
+            feedback = f"Failed. Error: {error}"
+
+        # Create observation
+        observation = observe_step_result(
+            step_id=step.id,
+            step_description=step.description,
+            expected_result=step.expected_result,
+            success_criteria=step.success_criteria,
+            actual_feedback=feedback,
+        )
+
+        return observation
+
+    def decide_next_action(
+        self,
+        plan: ExecutionPlan,
+        observation: StepObservation,
+    ) -> str:
+        """
+        Decide what to do next based on observation.
+
+        Returns:
+            "continue" | "retry" | "replan" | "stop"
+        """
+        # If observer recommends something, use it
+        if observation.recommended_next in ["continue", "retry", "replan", "stop"]:
+            return observation.recommended_next
+
+        # Fallback decision logic
+        if observation.matched_expectation:
+            return "continue"
+
+        # Check retry count
+        current_step = None
+        for step in plan.steps:
+            if step.id == observation.step_id:
+                current_step = step
+                break
+
+        if current_step and current_step.retry_count < current_step.max_retries:
+            return "retry"
+
+        # Uncertain/low confidence
+        if observation.confidence < 0.5:
+            return "replan"
+
+        # Default to stop on failure
+        return "stop"
+
+    def execute_plan_step(
+        self,
+        plan: ExecutionPlan,
+        step: Optional[ExecutionStep] = None,
+    ) -> Tuple[ExecutionPlan, str, Optional[StepObservation]]:
+        """
+        Execute a single step of the plan.
+
+        Does:
+        1. Mark step started
+        2. Prepare message
+        3. (Caller will dispatch to router)
+        4. Handle response
+        5. Observe results
+        6. Update todo
+        7. Decide next action
+
+        Note: This handles the "before dispatch" and "after dispatch" bookkeeping.
+        The actual router dispatch happens outside.
+
+        Args:
+            plan: Execution plan
+            step: Optional step (defaults to current/next step)
+
+        Returns:
+            Tuple of (updated_plan, next_action, observation)
+        """
+        # Get step if not provided
+        if not step:
+            step = self.todo_manager.get_current_step(plan)
+            if not step:
+                # Try to get next incomplete step
+                step = self.todo_manager.get_next_step(plan)
+            if not step:
+                return plan, "stop", None
+
+        # Mark step started
+        self.todo_manager.mark_step_started(plan, step.id)
+
+        # Prepare message (caller will dispatch this)
+        message = self.prepare_step_message(plan, step)
+        if not message:
+            return plan, "stop", None
+
+        # Return plan + message for caller to dispatch
+        # (Actual dispatch happens in scout/main loop)
+        return plan, "dispatch", None
+
+    def finalize_step(
+        self,
+        plan: ExecutionPlan,
+        step: ExecutionStep,
+        service_response: Dict[str, Any],
+    ) -> Tuple[ExecutionPlan, str]:
+        """
+        Finalize step after service response.
+
+        Does:
+        1. Handle response
+        2. Observe results
+        3. Record observation
+        4. Mark step completed/failed
+        5. Update todo
+        6. Decide next action
+
+        Args:
+            plan: Execution plan
+            step: Step that was executed
+            service_response: Response from service
+
+        Returns:
+            Tuple of (updated_plan, next_action)
+        """
+        # Handle response and observe
+        observation = self.handle_service_response(plan, step, service_response)
+
+        # Record observation in plan
+        self.todo_manager.record_observation(plan, step.id, observation)
+
+        # Update step based on observation
+        if observation.matched_expectation:
+            actual_result = service_response.get("result", {}).get("output", "")
+            self.todo_manager.mark_step_completed(plan, step.id, str(actual_result))
+        else:
+            if step.retry_count < step.max_retries:
+                # Will retry
+                step.retry_count += 1
+            else:
+                # Mark failed
+                error = service_response.get("error", "Unknown error")
+                self.todo_manager.mark_step_failed(plan, step.id, error)
+
+        # Decide next action
+        next_action = self.decide_next_action(plan, observation)
+
+        return plan, next_action
+
+    def get_plan_status(self, plan: ExecutionPlan) -> Dict[str, Any]:
+        """
+        Get current status of plan.
+
+        Returns:
+            Dict with plan status, current step, progress, etc
+        """
+        remaining = self.todo_manager.get_remaining_steps(plan)
+        current = self.todo_manager.get_current_step(plan)
+
+        return {
+            "plan_id": plan.plan_id,
+            "objective": plan.objective,
+            "status": plan.status.value if hasattr(plan.status, "value") else str(plan.status),
+            "current_step": current.description if current else None,
+            "progress": f"{len(plan.steps) - len(remaining)}/{len(plan.steps)}",
+            "remaining": len(remaining),
+            "can_continue": self.todo_manager.can_continue(plan),
+        }
+
+
+
+================================================================================
 FILE: brain/__init__.py
 ================================================================================
 
 """
-Brain module - decision making and intent detection.
-Reads from config, calls LLM, returns structured actions.
+Brain module - decision making and execution control.
+Reads from config, calls LLM, manages multi-step execution.
 Does NOT call executor, tools, or state directly - uses router only.
 """
 
 from .brain import analyze_intent, generate_action_legacy, check_safety, is_conversational
 from .planner import create_plan, create_simple_plan, classify_task_size
 from .observer import observe_step_result, simple_observe
+from .supervisor import Supervisor
 
 __all__ = [
     # Core analysis
@@ -47030,6 +47486,7 @@ __all__ = [
     "classify_task_size",
     "observe_step_result",
     "simple_observe",
+    "Supervisor",
 ]
 
 
@@ -54582,228 +55039,6 @@ if __name__ == "__main__":
 
 
 ================================================================================
-FILE: todo/todo.py
-================================================================================
-
-"""
-TODO system - task tracking and progress management.
-Track tasks, steps, and progress similar to Claude Code.
-"""
-
-from typing import List, Dict, Optional
-from dataclasses import dataclass, asdict, field
-from enum import Enum
-import json
-import os
-from datetime import datetime
-
-
-class TaskStatus(Enum):
-    """Task status."""
-    PENDING = "pending"
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-    BLOCKED = "blocked"
-
-
-@dataclass
-class Task:
-    """Individual task/step."""
-    content: str                # What needs to be done (imperative)
-    active_form: str           # Present continuous form ("Doing X")
-    status: str = "pending"    # pending, in_progress, completed
-    created_at: str = field(default_factory=lambda: datetime.now().isoformat())
-    completed_at: Optional[str] = None
-    notes: Optional[str] = None
-
-
-@dataclass
-class TodoList:
-    """Collection of tasks."""
-    title: str
-    tasks: List[Task] = field(default_factory=list)
-    created_at: str = field(default_factory=lambda: datetime.now().isoformat())
-    updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
-
-
-class TodoManager:
-    """Manage tasks and progress."""
-
-    def __init__(self, todo_dir: str = "/home/dmannu/ai model 8/todo"):
-        """Initialize TODO manager."""
-        self.todo_dir = todo_dir
-        os.makedirs(todo_dir, exist_ok=True)
-
-    def create_todo_list(self, title: str) -> TodoList:
-        """Create new TODO list."""
-        return TodoList(title=title, tasks=[])
-
-    def add_task(
-        self,
-        todo_list: TodoList,
-        content: str,
-        active_form: str,
-    ) -> Task:
-        """Add task to list."""
-        task = Task(content=content, active_form=active_form)
-        todo_list.tasks.append(task)
-        return task
-
-    def mark_in_progress(
-        self,
-        todo_list: TodoList,
-        task_index: int,
-    ) -> bool:
-        """Mark task as in_progress."""
-        if 0 <= task_index < len(todo_list.tasks):
-            task = todo_list.tasks[task_index]
-            if task.status == "pending":
-                task.status = "in_progress"
-                todo_list.updated_at = datetime.now().isoformat()
-                return True
-        return False
-
-    def mark_completed(
-        self,
-        todo_list: TodoList,
-        task_index: int,
-    ) -> bool:
-        """Mark task as completed."""
-        if 0 <= task_index < len(todo_list.tasks):
-            task = todo_list.tasks[task_index]
-            if task.status in ["pending", "in_progress"]:
-                task.status = "completed"
-                task.completed_at = datetime.now().isoformat()
-                todo_list.updated_at = datetime.now().isoformat()
-                return True
-        return False
-
-    def mark_blocked(
-        self,
-        todo_list: TodoList,
-        task_index: int,
-        reason: str = "",
-    ) -> bool:
-        """Mark task as blocked."""
-        if 0 <= task_index < len(todo_list.tasks):
-            task = todo_list.tasks[task_index]
-            task.status = "blocked"
-            task.notes = reason
-            todo_list.updated_at = datetime.now().isoformat()
-            return True
-        return False
-
-    def save_todo_list(self, todo_list: TodoList, filename: str) -> bool:
-        """Save TODO list to file."""
-        try:
-            filepath = os.path.join(self.todo_dir, f"{filename}.json")
-            data = {
-                "title": todo_list.title,
-                "created_at": todo_list.created_at,
-                "updated_at": todo_list.updated_at,
-                "tasks": [asdict(t) for t in todo_list.tasks],
-            }
-            with open(filepath, "w") as f:
-                json.dump(data, f, indent=2)
-            return True
-        except Exception as e:
-            print(f"Error saving: {e}")
-            return False
-
-    def load_todo_list(self, filename: str) -> Optional[TodoList]:
-        """Load TODO list from file."""
-        try:
-            filepath = os.path.join(self.todo_dir, f"{filename}.json")
-            with open(filepath, "r") as f:
-                data = json.load(f)
-
-            tasks = [Task(**t) for t in data.get("tasks", [])]
-            todo_list = TodoList(
-                title=data["title"],
-                tasks=tasks,
-                created_at=data["created_at"],
-                updated_at=data["updated_at"],
-            )
-            return todo_list
-        except FileNotFoundError:
-            return None
-        except Exception as e:
-            print(f"Error loading: {e}")
-            return None
-
-    def get_status(self, todo_list: TodoList) -> Dict:
-        """Get TODO list status."""
-        total = len(todo_list.tasks)
-        completed = sum(1 for t in todo_list.tasks if t.status == "completed")
-        in_progress = sum(1 for t in todo_list.tasks if t.status == "in_progress")
-        pending = sum(1 for t in todo_list.tasks if t.status == "pending")
-        blocked = sum(1 for t in todo_list.tasks if t.status == "blocked")
-
-        return {
-            "title": todo_list.title,
-            "total": total,
-            "completed": completed,
-            "in_progress": in_progress,
-            "pending": pending,
-            "blocked": blocked,
-            "percentage": (completed / total * 100) if total > 0 else 0,
-        }
-
-    def print_todo_list(self, todo_list: TodoList) -> None:
-        """Print TODO list in readable format."""
-        status = self.get_status(todo_list)
-
-        print(f"\n{'=' * 70}")
-        print(f"TODO: {status['title']}")
-        print(f"{'=' * 70}")
-        print(f"Status: {status['completed']}/{status['total']} completed ({status['percentage']:.0f}%)")
-        print(f"In Progress: {status['in_progress']} | Pending: {status['pending']} | Blocked: {status['blocked']}\n")
-
-        for i, task in enumerate(todo_list.tasks, 1):
-            status_icon = {
-                "pending": "⏳",
-                "in_progress": "🔄",
-                "completed": "✅",
-                "blocked": "⛔",
-            }.get(task.status, "❓")
-
-            print(f"{i}. {status_icon} {task.content}")
-            if task.status == "in_progress":
-                print(f"   → {task.active_form}")
-            if task.status == "blocked" and task.notes:
-                print(f"   🛑 {task.notes}")
-
-
-# ============================================================================
-# Convenience Functions
-# ============================================================================
-
-def create_task_list(title: str) -> TodoList:
-    """Create new task list."""
-    return TodoList(title=title, tasks=[])
-
-
-def add_task(
-    todo_list: TodoList,
-    content: str,
-    active_form: str,
-) -> Task:
-    """Add task to list."""
-    return TodoManager().add_task(todo_list, content, active_form)
-
-
-def mark_task_done(todo_list: TodoList, task_index: int) -> bool:
-    """Mark task as completed."""
-    return TodoManager().mark_completed(todo_list, task_index)
-
-
-def print_tasks(todo_list: TodoList) -> None:
-    """Print tasks."""
-    TodoManager().print_todo_list(todo_list)
-
-
-
-================================================================================
 FILE: todo/__init__.py
 ================================================================================
 
@@ -55061,6 +55296,512 @@ class StepObservation:
             "actual_output": self.actual_output,
             "timestamp": self.timestamp,
         }
+
+
+
+================================================================================
+FILE: todo/todo.py
+================================================================================
+
+"""
+TODO system - task tracking and execution plan management.
+Track tasks like Claude Code and manage multi-step execution plans.
+"""
+
+from typing import List, Dict, Optional
+from dataclasses import dataclass, asdict, field
+from enum import Enum
+import json
+import os
+from datetime import datetime
+
+# Import new schema classes
+from .schemas import ExecutionPlan, ExecutionStep, StepObservation, StepStatus
+
+
+class TaskStatus(Enum):
+    """Task status."""
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    BLOCKED = "blocked"
+
+
+@dataclass
+class Task:
+    """Individual task/step."""
+    content: str                # What needs to be done (imperative)
+    active_form: str           # Present continuous form ("Doing X")
+    status: str = "pending"    # pending, in_progress, completed
+    created_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    completed_at: Optional[str] = None
+    notes: Optional[str] = None
+
+
+@dataclass
+class TodoList:
+    """Collection of tasks."""
+    title: str
+    tasks: List[Task] = field(default_factory=list)
+    created_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
+
+
+class TodoManager:
+    """Manage tasks and progress."""
+
+    def __init__(self, todo_dir: str = "/home/dmannu/ai model 8/todo"):
+        """Initialize TODO manager."""
+        self.todo_dir = todo_dir
+        os.makedirs(todo_dir, exist_ok=True)
+
+    def create_todo_list(self, title: str) -> TodoList:
+        """Create new TODO list."""
+        return TodoList(title=title, tasks=[])
+
+    def add_task(
+        self,
+        todo_list: TodoList,
+        content: str,
+        active_form: str,
+    ) -> Task:
+        """Add task to list."""
+        task = Task(content=content, active_form=active_form)
+        todo_list.tasks.append(task)
+        return task
+
+    def mark_in_progress(
+        self,
+        todo_list: TodoList,
+        task_index: int,
+    ) -> bool:
+        """Mark task as in_progress."""
+        if 0 <= task_index < len(todo_list.tasks):
+            task = todo_list.tasks[task_index]
+            if task.status == "pending":
+                task.status = "in_progress"
+                todo_list.updated_at = datetime.now().isoformat()
+                return True
+        return False
+
+    def mark_completed(
+        self,
+        todo_list: TodoList,
+        task_index: int,
+    ) -> bool:
+        """Mark task as completed."""
+        if 0 <= task_index < len(todo_list.tasks):
+            task = todo_list.tasks[task_index]
+            if task.status in ["pending", "in_progress"]:
+                task.status = "completed"
+                task.completed_at = datetime.now().isoformat()
+                todo_list.updated_at = datetime.now().isoformat()
+                return True
+        return False
+
+    def mark_blocked(
+        self,
+        todo_list: TodoList,
+        task_index: int,
+        reason: str = "",
+    ) -> bool:
+        """Mark task as blocked."""
+        if 0 <= task_index < len(todo_list.tasks):
+            task = todo_list.tasks[task_index]
+            task.status = "blocked"
+            task.notes = reason
+            todo_list.updated_at = datetime.now().isoformat()
+            return True
+        return False
+
+    def save_todo_list(self, todo_list: TodoList, filename: str) -> bool:
+        """Save TODO list to file."""
+        try:
+            filepath = os.path.join(self.todo_dir, f"{filename}.json")
+            data = {
+                "title": todo_list.title,
+                "created_at": todo_list.created_at,
+                "updated_at": todo_list.updated_at,
+                "tasks": [asdict(t) for t in todo_list.tasks],
+            }
+            with open(filepath, "w") as f:
+                json.dump(data, f, indent=2)
+            return True
+        except Exception as e:
+            print(f"Error saving: {e}")
+            return False
+
+    def load_todo_list(self, filename: str) -> Optional[TodoList]:
+        """Load TODO list from file."""
+        try:
+            filepath = os.path.join(self.todo_dir, f"{filename}.json")
+            with open(filepath, "r") as f:
+                data = json.load(f)
+
+            tasks = [Task(**t) for t in data.get("tasks", [])]
+            todo_list = TodoList(
+                title=data["title"],
+                tasks=tasks,
+                created_at=data["created_at"],
+                updated_at=data["updated_at"],
+            )
+            return todo_list
+        except FileNotFoundError:
+            return None
+        except Exception as e:
+            print(f"Error loading: {e}")
+            return None
+
+    def get_status(self, todo_list: TodoList) -> Dict:
+        """Get TODO list status."""
+        total = len(todo_list.tasks)
+        completed = sum(1 for t in todo_list.tasks if t.status == "completed")
+        in_progress = sum(1 for t in todo_list.tasks if t.status == "in_progress")
+        pending = sum(1 for t in todo_list.tasks if t.status == "pending")
+        blocked = sum(1 for t in todo_list.tasks if t.status == "blocked")
+
+        return {
+            "title": todo_list.title,
+            "total": total,
+            "completed": completed,
+            "in_progress": in_progress,
+            "pending": pending,
+            "blocked": blocked,
+            "percentage": (completed / total * 100) if total > 0 else 0,
+        }
+
+    def print_todo_list(self, todo_list: TodoList) -> None:
+        """Print TODO list in readable format."""
+        status = self.get_status(todo_list)
+
+        print(f"\n{'=' * 70}")
+        print(f"TODO: {status['title']}")
+        print(f"{'=' * 70}")
+        print(f"Status: {status['completed']}/{status['total']} completed ({status['percentage']:.0f}%)")
+        print(f"In Progress: {status['in_progress']} | Pending: {status['pending']} | Blocked: {status['blocked']}\n")
+
+        for i, task in enumerate(todo_list.tasks, 1):
+            status_icon = {
+                "pending": "⏳",
+                "in_progress": "🔄",
+                "completed": "✅",
+                "blocked": "⛔",
+            }.get(task.status, "❓")
+
+            print(f"{i}. {status_icon} {task.content}")
+            if task.status == "in_progress":
+                print(f"   → {task.active_form}")
+            if task.status == "blocked" and task.notes:
+                print(f"   🛑 {task.notes}")
+
+    # ========================================================================
+    # NEW: ExecutionPlan methods (for multi-step task execution)
+    # ========================================================================
+
+    def start_plan(self, plan: ExecutionPlan) -> ExecutionPlan:
+        """
+        Start an execution plan.
+
+        Args:
+            plan: ExecutionPlan to start
+
+        Returns:
+            Updated plan with status changed to IN_PROGRESS
+        """
+        plan.status = "in_progress"
+        plan.started_at = datetime.now().isoformat()
+
+        # Mark first step as in progress if not already
+        if plan.current_step_id and not plan.get_current_step():
+            plan.current_step_id = None
+
+        # Set current step to first pending step
+        if not plan.current_step_id and plan.steps:
+            plan.current_step_id = plan.steps[0].id
+            plan.steps[0].status = StepStatus.IN_PROGRESS
+            plan.steps[0].started_at = datetime.now().isoformat()
+
+        return plan
+
+    def get_current_step(self, plan: ExecutionPlan) -> Optional[ExecutionStep]:
+        """Get the currently executing step."""
+        if not plan.current_step_id:
+            return None
+        for step in plan.steps:
+            if step.id == plan.current_step_id:
+                return step
+        return None
+
+    def mark_step_started(self, plan: ExecutionPlan, step_id: str) -> bool:
+        """
+        Mark a step as in progress.
+
+        Args:
+            plan: ExecutionPlan
+            step_id: ID of step to start
+
+        Returns:
+            True if step was marked started
+        """
+        for step in plan.steps:
+            if step.id == step_id:
+                if step.status == StepStatus.PENDING:
+                    step.status = StepStatus.IN_PROGRESS
+                    step.started_at = datetime.now().isoformat()
+                    plan.current_step_id = step_id
+                    plan.status = "in_progress"
+                    return True
+        return False
+
+    def record_observation(
+        self,
+        plan: ExecutionPlan,
+        step_id: str,
+        observation: StepObservation,
+    ) -> bool:
+        """
+        Record observation/feedback from step execution.
+
+        Args:
+            plan: ExecutionPlan
+            step_id: ID of step that was observed
+            observation: StepObservation with feedback
+
+        Returns:
+            True if observation was recorded
+        """
+        for step in plan.steps:
+            if step.id == step_id:
+                step.last_observation = observation.to_dict()
+                # Optionally record to history
+                plan.history.append({
+                    "timestamp": datetime.now().isoformat(),
+                    "step_id": step_id,
+                    "event": "observation",
+                    "observation": observation.to_dict(),
+                })
+                return True
+        return False
+
+    def mark_step_completed(
+        self,
+        plan: ExecutionPlan,
+        step_id: str,
+        actual_result: str = "",
+    ) -> bool:
+        """
+        Mark a step as completed.
+
+        Args:
+            plan: ExecutionPlan
+            step_id: ID of step
+            actual_result: What actually happened
+
+        Returns:
+            True if step was marked completed
+        """
+        for step in plan.steps:
+            if step.id == step_id:
+                step.status = StepStatus.COMPLETED
+                step.actual_result = actual_result
+                step.completed_at = datetime.now().isoformat()
+                plan.history.append({
+                    "timestamp": datetime.now().isoformat(),
+                    "step_id": step_id,
+                    "event": "completed",
+                    "actual_result": actual_result,
+                })
+                return True
+        return False
+
+    def mark_step_failed(
+        self,
+        plan: ExecutionPlan,
+        step_id: str,
+        reason: str = "",
+    ) -> bool:
+        """
+        Mark a step as failed.
+
+        Args:
+            plan: ExecutionPlan
+            step_id: ID of step
+            reason: Why it failed
+
+        Returns:
+            True if step was marked failed
+        """
+        for step in plan.steps:
+            if step.id == step_id:
+                step.status = StepStatus.FAILED
+                step.error = reason
+                plan.history.append({
+                    "timestamp": datetime.now().isoformat(),
+                    "step_id": step_id,
+                    "event": "failed",
+                    "reason": reason,
+                })
+                return True
+        return False
+
+    def get_next_step(self, plan: ExecutionPlan) -> Optional[ExecutionStep]:
+        """
+        Get the next step that should be executed.
+
+        Respects dependencies: only returns steps whose dependencies are completed.
+
+        Returns:
+            Next ExecutionStep or None if no more steps
+        """
+        for step in plan.steps:
+            if step.status == StepStatus.PENDING:
+                # Check dependencies
+                if self._dependencies_met(plan, step):
+                    return step
+        return None
+
+    def _dependencies_met(self, plan: ExecutionPlan, step: ExecutionStep) -> bool:
+        """Check if all dependencies of a step are completed."""
+        for dep_id in step.depends_on:
+            dep_step = None
+            for s in plan.steps:
+                if s.id == dep_id:
+                    dep_step = s
+                    break
+            if not dep_step or dep_step.status != StepStatus.COMPLETED:
+                return False
+        return True
+
+    def can_continue(self, plan: ExecutionPlan) -> bool:
+        """
+        Check if plan can continue (not blocked/failed).
+
+        Returns:
+            True if plan is in progress or has next steps available
+        """
+        # Check if plan is complete
+        if plan.is_complete():
+            return False
+
+        # Check for blocked steps
+        for step in plan.steps:
+            if step.status == StepStatus.BLOCKED:
+                # Plan is blocked if a step is blocked and not yet resolved
+                return False
+
+        # Can continue if there's a next step or current step is in progress
+        return plan.get_next_incomplete_step() is not None or plan.get_current_step() is not None
+
+    def get_remaining_steps(self, plan: ExecutionPlan) -> List[ExecutionStep]:
+        """Get all remaining (not completed/skipped) steps."""
+        return plan.get_remaining_steps()
+
+    def save_plan(self, plan: ExecutionPlan, filename: str = None) -> bool:
+        """
+        Save execution plan to file.
+
+        Args:
+            plan: ExecutionPlan to save
+            filename: Optional filename (defaults to plan_id)
+
+        Returns:
+            True if saved successfully
+        """
+        try:
+            if not filename:
+                filename = plan.plan_id
+            filepath = os.path.join(self.todo_dir, f"{filename}.json")
+            with open(filepath, "w") as f:
+                json.dump(plan.to_dict(), f, indent=2)
+            return True
+        except Exception as e:
+            print(f"Error saving plan: {e}")
+            return False
+
+    def load_plan(self, filename: str) -> Optional[ExecutionPlan]:
+        """
+        Load execution plan from file.
+
+        Args:
+            filename: Filename to load
+
+        Returns:
+            ExecutionPlan or None if not found
+        """
+        try:
+            filepath = os.path.join(self.todo_dir, f"{filename}.json")
+            with open(filepath, "r") as f:
+                data = json.load(f)
+
+            # Reconstruct ExecutionPlan from dict
+            # This is a simplified version; proper deserialization might be more complex
+            plan = ExecutionPlan(
+                plan_id=data["plan_id"],
+                objective=data["objective"],
+                created_by=data["created_by"],
+                status=data.get("status", "created"),
+                created_at=data.get("created_at"),
+                started_at=data.get("started_at"),
+                completed_at=data.get("completed_at"),
+                history=data.get("history", []),
+                context=data.get("context", {}),
+            )
+
+            # Reconstruct steps (simplified)
+            for step_data in data.get("steps", []):
+                step = ExecutionStep(
+                    id=step_data["id"],
+                    description=step_data["description"],
+                    target=step_data["target"],
+                    action=step_data["action"],
+                    expected_result=step_data["expected_result"],
+                    status=StepStatus(step_data.get("status", "pending")),
+                    payload=step_data.get("payload", {}),
+                    success_criteria=step_data.get("success_criteria", []),
+                    query_maker=step_data.get("query_maker"),
+                    retry_count=step_data.get("retry_count", 0),
+                    max_retries=step_data.get("max_retries", 3),
+                    actual_result=step_data.get("actual_result"),
+                    error=step_data.get("error"),
+                    depends_on=step_data.get("depends_on", []),
+                )
+                plan.steps.append(step)
+
+            plan.current_step_id = data.get("current_step_id")
+            return plan
+        except FileNotFoundError:
+            return None
+        except Exception as e:
+            print(f"Error loading plan: {e}")
+            return None
+
+
+# ============================================================================
+# Convenience Functions
+# ============================================================================
+
+def create_task_list(title: str) -> TodoList:
+    """Create new task list."""
+    return TodoList(title=title, tasks=[])
+
+
+def add_task(
+    todo_list: TodoList,
+    content: str,
+    active_form: str,
+) -> Task:
+    """Add task to list."""
+    return TodoManager().add_task(todo_list, content, active_form)
+
+
+def mark_task_done(todo_list: TodoList, task_index: int) -> bool:
+    """Mark task as completed."""
+    return TodoManager().mark_completed(todo_list, task_index)
+
+
+def print_tasks(todo_list: TodoList) -> None:
+    """Print tasks."""
+    TodoManager().print_todo_list(todo_list)
 
 
 

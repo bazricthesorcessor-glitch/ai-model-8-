@@ -6,7 +6,9 @@ Asks GPT-OSS: "Generate steps, expected results, risks, and fallback conditions.
 from typing import Dict, Any, List
 from todo.schemas import ExecutionPlan, ExecutionStep, StepStatus
 from brain.llm import get_llm_response
+from brain.json_utils import extract_json_array
 import json
+import uuid
 
 
 def create_plan(objective: str, context: Dict[str, Any] = None) -> ExecutionPlan:
@@ -73,12 +75,15 @@ Respond with JSON array of steps:
     try:
         response_text = get_llm_response(prompt, role="deep_thinking_model")
 
-        # Parse JSON response
-        steps_data = json.loads(response_text)
+        # Parse JSON response robustly
+        steps_data = extract_json_array(response_text)
+        if steps_data is None:
+            print("⚠ Planner failed to extract JSON from response, using fallback")
+            steps_data = []
 
         # Build ExecutionPlan
         plan = ExecutionPlan(
-            plan_id=f"plan_{objective[:20].lower().replace(' ', '_')}",
+            plan_id=f"plan_{uuid.uuid4().hex[:8]}",
             objective=objective,
             created_by="brain",
             context=context or {},
@@ -109,7 +114,7 @@ Respond with JSON array of steps:
         # Fallback: create simple single-step plan
         print(f"⚠ Planner error: {str(e)}, creating fallback plan")
         plan = ExecutionPlan(
-            plan_id="plan_fallback",
+            plan_id=f"plan_{uuid.uuid4().hex[:8]}",
             objective=objective,
             created_by="brain",
             context={"error": str(e)},
@@ -137,7 +142,7 @@ def create_simple_plan(objective: str) -> ExecutionPlan:
     Used for quick/obvious tasks.
     """
     plan = ExecutionPlan(
-        plan_id=f"simple_{objective[:15].lower().replace(' ', '_')}",
+        plan_id=f"plan_{uuid.uuid4().hex[:8]}",
         objective=objective,
         created_by="brain",
     )
