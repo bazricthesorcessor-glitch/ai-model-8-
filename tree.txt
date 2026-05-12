@@ -1,4 +1,5 @@
 .
+├── 2026-05-12_CONTEXT_SEED.md
 ├── agent
 │   ├── agent_cli.py
 │   ├── agent_config.py
@@ -12,12 +13,17 @@
 │   ├── __init__.py
 │   ├── llm.py
 │   ├── __pycache__
+│   │   ├── action_parser.cpython-311.pyc
 │   │   ├── action_parser.cpython-314.pyc
+│   │   ├── brain.cpython-311.pyc
 │   │   ├── brain.cpython-314.pyc
+│   │   ├── __init__.cpython-311.pyc
 │   │   ├── __init__.cpython-314.pyc
+│   │   ├── llm.cpython-311.pyc
 │   │   ├── llm.cpython-314.pyc
 │   │   └── router.cpython-314.pyc
 │   └── README.md
+├── CAELESTIA_DOCUMENTATION.md
 ├── CLEANUP_CHECKLIST.md
 ├── codebase_full.txt
 ├── codebase.txt
@@ -27,36 +33,57 @@
 │   ├── HYPRLAND_CONFIG_GUIDE.md
 │   ├── __init__.py
 │   ├── __pycache__
+│   │   ├── __init__.cpython-311.pyc
 │   │   ├── __init__.cpython-314.pyc
+│   │   ├── settings.cpython-311.pyc
 │   │   └── settings.cpython-314.pyc
 │   ├── README.md
 │   ├── settings.py
 │   └── shell.json
+├── CONSOLIDATION_GUIDE.md
 ├── DEPENDENCY_ANALYSIS.md
 ├── DEPENDENCY_DIAGRAMS.md
 ├── executor
+│   ├── caelestia_integration.py
 │   ├── executor.py
 │   ├── __init__.py
+│   ├── input_controller.py
 │   ├── __pycache__
+│   │   ├── executor.cpython-311.pyc
 │   │   ├── executor.cpython-314.pyc
+│   │   ├── __init__.cpython-311.pyc
 │   │   └── __init__.cpython-314.pyc
 │   ├── README.md
 │   └── test_executor.py
 ├── gemma_connector
 │   ├── config.py
-│   └── __init__.py
+│   ├── __init__.py
+│   └── __pycache__
+│       └── __init__.cpython-314.pyc
 ├── HYBRID_SEARCH_IMPLEMENTATION.md
 ├── main.py
 ├── memory
+│   ├── agent_history_logger.py
+│   ├── conversation_logger.py
 │   ├── core.py
+│   ├── executermemorydesign.md
 │   ├── __init__.py
 │   ├── memory.py
 │   ├── __pycache__
+│   │   ├── core.cpython-311.pyc
 │   │   ├── core.cpython-314.pyc
+│   │   ├── __init__.cpython-311.pyc
 │   │   ├── __init__.cpython-314.pyc
+│   │   ├── memory.cpython-311.pyc
 │   │   └── memory.cpython-314.pyc
 │   ├── README.md
-│   └── test_memory.py
+│   ├── scout_history_logger.py
+│   ├── scout_memory_manager.py
+│   ├── scout_memory.py
+│   ├── steps.md.txt
+│   ├── structure.md.txt
+│   ├── test_memory.py
+│   └── unified_memory.py
 ├── os
 │   ├── hyprland_ai_agent.py
 │   ├── hyprland_config.sh
@@ -68,6 +95,9 @@
 │   ├── README.md
 │   ├── split_manager.py
 │   └── window_manager.py
+├── __pycache__
+│   ├── api.cpython-311.pyc
+│   └── api.cpython-314.pyc
 ├── README.md
 ├── requirements.txt
 ├── router
@@ -76,14 +106,21 @@
 │   ├── message.py
 │   ├── model_selector.py
 │   ├── __pycache__
+│   │   ├── __init__.cpython-311.pyc
 │   │   ├── __init__.cpython-314.pyc
+│   │   ├── message.cpython-311.pyc
 │   │   ├── message.cpython-314.pyc
+│   │   ├── model_selector.cpython-311.pyc
 │   │   ├── model_selector.cpython-314.pyc
+│   │   ├── router.cpython-311.pyc
 │   │   └── router.cpython-314.pyc
 │   ├── README.md
 │   ├── router.py
 │   ├── routing_config.py
 │   └── test_router.py
+├── scout
+│   └── scout_context_router.py
+├── SCOUT_MEMORY_DOCUMENTATION.md
 ├── scrapegraphai_detailed_analysis.md
 ├── scrapegraphai_executive_summary.txt
 ├── scrapegraphai_repository_index.txt
@@ -93,7 +130,9 @@
 ├── state
 │   ├── __init__.py
 │   ├── __pycache__
+│   │   ├── __init__.cpython-311.pyc
 │   │   ├── __init__.cpython-314.pyc
+│   │   ├── state.cpython-311.pyc
 │   │   └── state.cpython-314.pyc
 │   ├── README.md
 │   └── state.py
@@ -115,6 +154,7 @@
 │   ├── browser
 │   │   ├── __init__.py
 │   │   └── __pycache__
+│   │       ├── __init__.cpython-311.pyc
 │   │       └── __init__.cpython-314.pyc
 │   ├── CAELESTIA_COMMAND_REFERENCE.md
 │   ├── caelestia_examples.py
@@ -125,39 +165,59 @@
 │   ├── keyboard
 │   │   ├── __init__.py
 │   │   └── __pycache__
+│   │       ├── __init__.cpython-311.pyc
 │   │       └── __init__.cpython-314.pyc
 │   ├── knowledge_router.py
 │   ├── mouse
 │   │   ├── __init__.py
 │   │   └── __pycache__
+│   │       ├── __init__.cpython-311.pyc
 │   │       └── __init__.cpython-314.pyc
 │   ├── __pycache__
 │   │   ├── caelestia.cpython-314.pyc
+│   │   ├── __init__.cpython-311.pyc
 │   │   ├── __init__.cpython-314.pyc
+│   │   ├── knowledge_router.cpython-311.pyc
 │   │   ├── knowledge_router.cpython-314.pyc
+│   │   ├── registry.cpython-311.pyc
 │   │   ├── registry.cpython-314.pyc
+│   │   ├── schemas.cpython-311.pyc
 │   │   ├── schemas.cpython-314.pyc
+│   │   ├── tool.cpython-311.pyc
 │   │   └── tool.cpython-314.pyc
+│   ├── query_maker1.py
+│   ├── query_maker2.py
 │   ├── README.md
 │   ├── registry.py
 │   ├── schemas.py
 │   ├── system
 │   │   ├── __init__.py
 │   │   └── __pycache__
+│   │       ├── __init__.cpython-311.pyc
 │   │       └── __init__.cpython-314.pyc
 │   ├── test_tools.py
 │   ├── tool.py
+│   ├── unified_query_maker.py
 │   ├── vision
 │   │   ├── __init__.py
 │   │   └── __pycache__
+│   │       ├── __init__.cpython-311.pyc
 │   │       └── __init__.cpython-314.pyc
 │   └── web
 │       ├── __init__.py
 │       └── __pycache__
+│           ├── __init__.cpython-311.pyc
 │           └── __init__.cpython-314.pyc
 ├── tree.txt
 ├── ui
-│   └── dashboard.py
+│   ├── caelestia_controller.py
+│   ├── caelestia_examples.py
+│   ├── dashboard.py
+│   ├── __init__.py
+│   ├── quick_terminal_examples.py
+│   ├── QUICK_TERMINAL_GUIDE.md
+│   ├── quick_terminal.py
+│   └── shortcuts.sh
 ├── vision
 │   ├── examples.py
 │   ├── __init__.py
@@ -182,11 +242,16 @@
 │   │   ├── examples.py
 │   │   ├── __init__.py
 │   │   ├── __pycache__
+│   │   │   ├── api_backend.cpython-311.pyc
 │   │   │   ├── api_backend.cpython-314.pyc
+│   │   │   ├── browser_backend.cpython-311.pyc
 │   │   │   ├── browser_backend.cpython-314.pyc
+│   │   │   ├── __init__.cpython-311.pyc
 │   │   │   ├── __init__.cpython-314.pyc
+│   │   │   ├── scraper_backend.cpython-311.pyc
 │   │   │   ├── scraper_backend.cpython-314.pyc
 │   │   │   ├── smart_interactor.cpython-314.pyc
+│   │   │   ├── web.cpython-311.pyc
 │   │   │   └── web.cpython-314.pyc
 │   │   ├── scraper_backend.py
 │   │   ├── smart_interactor.py
@@ -208,4 +273,4 @@
 ├── whatsapp
 └── WORKFLOW_STRUCTURE.md
 
-49 directories, 160 files
+52 directories, 222 files

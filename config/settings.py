@@ -5,8 +5,6 @@ All system configuration centralized here.
 
 import os
 from datetime import datetime
-from gemma_connector.connector import api
-GEMMA_API = api
 
 
 OLLAMA_ENDPOINTS = {
@@ -28,6 +26,8 @@ LLM_CONFIG = {
     "router_model": "llama3.2:3b",
     "general_model": "llama3.2:3b",
     "thinking_model" : "gemma4:26b",
+    "code_model": "llama3.2:3b",
+    "ollama_url": "http://localhost:11434/api/generate",
     "temperature": 0.3,
     "top_p": 0.9,
     "timeout": 120,

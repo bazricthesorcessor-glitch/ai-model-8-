@@ -1,0 +1,626 @@
+Alright. Ab actual “perfect Avril memory” design banate hain — not chatbot memory, but a living operating memory system for a 1M context Scout. 🧠
+
+Tumhari requirement ko simplify kare toh:
+
+```text
+Scout should:
+- remember 2 weeks exactly
+- search full lifetime logs deeply
+- know current world state
+- know its own agents/tools
+- know user/project/personality
+- auto-clean outdated memory
+- never overload context
+- self-restart retrieval chains for huge logs
+```
+
+That means we need:
+
+```text
+ACTIVE MEMORY
++
+ARCHIVE MEMORY
++
+STATE MEMORY
++
+SEARCH ENGINE
++
+AUTO CLEANER
++
+CONTEXT COMPILER
+```
+
+---
+
+# FINAL AVRIL MEMORY ARCHITECTURE
+
+```text
+memory/
+│
+├── active/
+├── archive/
+├── state/
+├── semantic/
+├── identity/
+├── system/
+├── retrieval/
+├── temporary/
+└── indexes/
+```
+
+---
+
+# 1. ACTIVE MEMORY (1M CONTEXT FEED)
+
+This is what Scout actually receives MOST of the time.
+
+Goal:
+
+```text
+last ~14 days exact continuity
+```
+
+Structure:
+
+```text
+memory/active/
+├── daily_logs/
+│   ├── 2026-05-01.jsonl
+│   ├── 2026-05-02.jsonl
+│   └── ...
+│
+├── rolling_context/
+│   ├── current_context.md
+│   ├── current_summary.md
+│   └── current_priorities.md
+│
+└── active_index.json
+```
+
+---
+
+## RULES
+
+### Keep:
+
+* exact conversations
+* exact tasks
+* exact failures
+* exact decisions
+* exact emotional context
+* current project state
+
+### Remove:
+
+* repetitive greetings
+* useless chatter
+* duplicate retries
+* dead tool outputs
+
+---
+
+# 2. ARCHIVE MEMORY
+
+Infinite long-term storage.
+
+```text
+memory/archive/
+├── yearly/
+├── projects/
+├── conversations/
+├── failures/
+├── exams/
+├── coding/
+└── screenshots/
+```
+
+Scout does NOT load this fully.
+
+Instead:
+
+```text
+search → retrieve → inject relevant chunks
+```
+
+---
+
+# 3. STATE MEMORY (MOST IMPORTANT)
+
+This is where most AI agents fail.
+
+State memory ≠ conversation memory.
+
+This is REALITY memory.
+
+---
+
+## Structure
+
+```text
+memory/state/
+├── ui_state.json
+├── browser_state.json
+├── workspace_state.json
+├── agent_state.json
+├── system_state.json
+├── task_state.json
+├── alarms.json
+└── session_state.json
+```
+
+---
+
+## Example
+
+### `browser_state.json`
+
+```json
+{
+  "open_tabs": [
+    {
+      "title": "YouTube",
+      "url": "youtube.com",
+      "workspace": 2,
+      "reuse_priority": 10
+    }
+  ]
+}
+```
+
+So Scout knows:
+
+```text
+DO NOT OPEN NEW YOUTUBE TAB
+reuse existing one
+```
+
+---
+
+## `workspace_state.json`
+
+```json
+{
+  "workspace_1": "coding",
+  "workspace_2": "media",
+  "workspace_3": "browser",
+  "active_workspace": 2
+}
+```
+
+---
+
+# 4. IDENTITY MEMORY
+
+This is permanent personality/core.
+
+```text
+memory/identity/
+├── personality.md
+├── duties.md
+├── abilities.md
+├── agent_roles.md
+├── user_preferences.md
+├── safety_rules.md
+└── speaking_style.md
+```
+
+This NEVER gets summarized.
+
+Very small.
+Always loaded.
+
+---
+
+# 5. AGENT MEMORY
+
+Each agent gets separate scoped memory.
+
+```text
+memory/agents/
+├── scout/
+├── executor/
+├── thinker/
+└── coder/
+```
+
+---
+
+## Executor memory
+
+Contains:
+
+* keybinds
+* shell.json
+* commands
+* browser automation
+* workspace knowledge
+* terminal history
+* tool states
+
+---
+
+## Thinker memory
+
+Contains:
+
+* previous failures
+* reasoning mistakes
+* planning strategies
+* optimization lessons
+
+---
+
+## Coder memory
+
+Contains:
+
+* codebase structure
+* API knowledge
+* architecture
+* bug history
+* implementation patterns
+
+---
+
+# 6. TEMPORARY MEMORY
+
+Very important.
+
+```text
+memory/temporary/
+├── current_goal.json
+├── active_chain.json
+├── pending_actions.json
+└── scratchpad.md
+```
+
+This prevents:
+
+* losing mid-task thoughts
+* forgetting chain progress
+* repeated loops
+
+---
+
+# 7. SEMANTIC MEMORY
+
+Graph-style relationship memory.
+
+```text
+memory/semantic/
+├── entities.json
+├── relations.json
+├── projects_graph.json
+└── timeline.json
+```
+
+Example:
+
+```text
+Bazric → uses → CachyOS
+Executor → edits → shell.json
+Scout → controls → agents
+```
+
+---
+
+# 8. RETRIEVAL ENGINE
+
+THIS is the actual beast part.
+
+---
+
+## Layer 1 — Fast Retrieval
+
+Keyword search.
+
+```text
+grep
+ripgrep
+sqlite FTS
+BM25
+```
+
+Used for:
+
+* exact commands
+* filenames
+* error messages
+* syllabus
+* exam dates
+
+---
+
+## Layer 2 — Semantic Retrieval
+
+Embedding/vector search.
+
+Used for:
+
+* similar conversations
+* emotional context
+* related problems
+* coding patterns
+
+---
+
+## Layer 3 — Deep Reconstruction
+
+When logs exceed context.
+
+This is your important idea.
+
+---
+
+# DEEP SEARCH SYSTEM
+
+If archive > 10M tokens:
+
+```text
+split into chunks
+```
+
+Example:
+
+```text
+archive_1
+archive_2
+archive_3
+...
+```
+
+Scout then:
+
+```text
+query
+↓
+identify relevant chunks
+↓
+spawn retrieval passes
+↓
+summarize each
+↓
+merge summaries
+↓
+recursive refinement
+↓
+inject final context
+```
+
+This is basically:
+
+```text
+multi-pass recursive memory reconstruction
+```
+
+VERY powerful.
+
+---
+
+# 9. SELF-RESTARTING CONTEXT PASSES
+
+This is your unique idea.
+
+Pseudo flow:
+
+```text
+if relevant_logs > context_limit:
+    split_logs()
+    summarize_part()
+    save_partial_memory()
+    reload_next_chunk()
+    continue_search()
+```
+
+This allows:
+
+* effectively infinite memory
+* unlimited history search
+* recursive analysis
+
+Scout becomes:
+
+```text
+context streaming intelligence
+```
+
+instead of fixed-window AI.
+
+---
+
+# 10. MEMORY PRIORITY SYSTEM
+
+CRITICAL.
+
+Every memory gets score:
+
+```text
+importance
+recency
+emotional_weight
+task_relevance
+frequency
+user_explicit_save
+failure_prevention
+```
+
+---
+
+## Priority examples
+
+### MAX PRIORITY
+
+```text
+- user explicitly asked remember
+- exam dates
+- project architecture
+- repeated failures
+- passwords existence (NOT actual passwords)
+- health alerts
+```
+
+---
+
+## LOW PRIORITY
+
+```text
+- random jokes
+- temporary greetings
+- repeated small talk
+```
+
+---
+
+# 11. AUTO CLEANER
+
+This is genius if done right.
+
+---
+
+## Example rules
+
+### Exam auto cleanup
+
+```text
+if exam_date < current_date:
+    move_to_archive()
+    remove_from_active()
+```
+
+---
+
+## Temporary memory decay
+
+```text
+if task completed:
+    reduce priority
+```
+
+---
+
+## Stale state cleanup
+
+```text
+if browser tab closed:
+    remove from active ui state
+```
+
+---
+
+# 12. EXACT 2-WEEK MEMORY
+
+Your requirement:
+
+> “2 weeks exact memory normally”
+
+Correct implementation:
+
+```text
+14-day rolling exact logs
+```
+
+NOT summaries.
+
+So Scout receives:
+
+```text
+exact recent reality
+```
+
+This is important for continuity/personality.
+
+---
+
+# 13. CONTEXT COMPILER (MOST IMPORTANT FILE)
+
+This is the brain.
+
+Probably:
+
+```text
+query_maker.py
+```
+
+It decides:
+
+```text
+WHAT enters context
+```
+
+This is more important than the model itself.
+
+---
+
+## Context order
+
+Perfect order:
+
+```text
+1. System rules
+2. Personality
+3. Current state
+4. Active task
+5. Relevant memory
+6. Recent exact conversations
+7. Relevant archive retrievals
+8. Tool state
+9. Agent state
+10. Current user message
+```
+
+---
+
+# 14. MEMORY TOKEN DISTRIBUTION (1M)
+
+Example:
+
+```text
+100k  → personality/core
+150k  → state/UI/tools
+300k  → recent 2 weeks
+200k  → retrieved archives
+100k  → coding/project memory
+100k  → active tasks
+50k   → semantic graph
+```
+
+Dynamic allocation better.
+
+---
+
+# 15. WHAT NOT TO DO
+
+Never:
+
+* dump all logs blindly
+* summarize everything
+* mix state and conversations
+* let agents share raw memory
+* keep duplicate tool outputs
+* allow hallucinated memory writes
+
+---
+
+# 16. TRUE FINAL FORM
+
+Eventually Scout becomes:
+
+```text
+persistent cognitive operating system
+```
+
+not chatbot.
+
+It knows:
+
+* what happened
+* what exists now
+* what failed before
+* what user prefers
+* what each agent can do
+* what tasks are pending
+* what tools are available
+* what changed recently
+* what matters most
+
+That’s the actual “beast memory” architecture.

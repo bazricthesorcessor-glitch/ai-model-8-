@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/mnt/D/venvs/avril-main/bin/python3
 """
 Integration entry point for the modular AI assistant system.
 Demonstrates complete flow: user input → brain decision → execution → state tracking.

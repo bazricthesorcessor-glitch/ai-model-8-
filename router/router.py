@@ -31,18 +31,27 @@ def route(message: Message) -> Response:
             from brain import analyze_intent, generate_action
             from router.model_selector import select_model
             user_input = message.data.get("user_input", "")
+
+            # Select appropriate model with fallback strategy
             selected_model = select_model(user_input)
+
+            # Analyze intent
             intent = analyze_intent(user_input)
+
+            # Generate action with selected model
             action = generate_action(
                 message.data.get("user_input", ""),
-                context=message.context
+                context=message.context,
+                model=selected_model
             )
+
             return Response(
                 success=True,
                 action="decide",
                 data={
                     "intent": intent,
                     "action": action,
+                    "selected_model": selected_model,
                 }
             )
 

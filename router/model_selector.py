@@ -1,7 +1,7 @@
 import requests
+from groq import Groq
 
 from config.settings import (
-    GEMMA_API,
     LLM_CONFIG,
     OLLAMA_ENDPOINTS,
 )
@@ -24,35 +24,69 @@ THINK
 """
 
 def select_model(user_input):
+    """
+    Select routing model with fallback strategy:
+    1. Try groq
+    2. On error, fallback to llama3.2:3b
+    """
 
-    url = GEMMA_API + OLLAMA_ENDPOINTS["generate"]
-
-    payload = {
-        "model": LLM_CONFIG["router_model"],
-        "prompt": f"{ROUTER_PROMPT}\n\nTask:\n{user_input}",
-        "stream": False,
-        "options": {
-            "temperature": 0.1
-        }
-    }
-
+    # Strategy 1: Try Groq first
     try:
+        from api import api as groq_api_key
 
-        response = requests.post(
-            url,
-            json=payload,
-            timeout=LLM_CONFIG["timeout"]
+        client = Groq(api_key=groq_api_key)
+
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"{ROUTER_PROMPT}\n\nTask:\n{user_input}"
+                }
+            ],
+            temperature=0.1
         )
 
-        data = response.json()
-
-        result = data.get("response", "").strip().upper()
+        result = response.choices[0].message.content.strip().upper()
+        print("✓ Groq API started successfully")
 
         if "THINK" in result:
-            return LLM_CONFIG["thinking_model"]
+            return "groq"
 
-        return LLM_CONFIG["general_model"]
+        return "groq"
 
-    except Exception:
+    except Exception as e:
+        print(f"✗ Groq failed: {str(e)}")
+        print("→ Falling back to llama3.2:3b")
 
-        return LLM_CONFIG["general_model"]
+        # Strategy 2: Fallback to llama3.2:3b via OLLAMA
+        try:
+            url = LLM_CONFIG["ollama_url"]
+            payload = {
+                "model": "llama3.2:3b",
+                "prompt": f"{ROUTER_PROMPT}\n\nTask:\n{user_input}",
+                "stream": False,
+                "options": {
+                    "temperature": 0.1
+                }
+            }
+
+            response = requests.post(
+                url,
+                json=payload,
+                timeout=LLM_CONFIG["timeout"]
+            )
+
+            data = response.json()
+            result = data.get("response", "").strip().upper()
+            print("✓ llama3.2:3b started successfully")
+
+            if "THINK" in result:
+                return "llama3.2:3b"
+
+            return "llama3.2:3b"
+
+        except Exception as e2:
+            print(f"✗ llama3.2:3b also failed: {str(e2)}")
+            print("→ Using llama3.2:3b as final fallback")
+            return "llama3.2:3b"
