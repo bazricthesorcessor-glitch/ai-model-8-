@@ -132,7 +132,7 @@ def _handle_action(action: str, data: Dict[str, Any]) -> Dict[str, Any]:
         provider = data.get("provider")
         if not provider:
             return {"success": False, "error": "provider name required"}
-        return _ai_tabs_manager.focus_provider(provider)
+        return _ai_tabs_manager.focus_or_open_provider(provider)
 
     elif action == "list_providers":
         return _ai_tabs_manager.list_providers()
