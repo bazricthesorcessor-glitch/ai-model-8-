@@ -314,11 +314,11 @@ class ScreenshotManager:
     def _command_exists(command: str) -> bool:
         """Check if command exists in PATH."""
         try:
-            subprocess.run(
+            result = subprocess.run(
                 ["which", command],
                 capture_output=True,
                 timeout=1,
             )
-            return True
+            return result.returncode == 0
         except Exception:
             return False

@@ -40,7 +40,7 @@ class TerminalExecutor:
     Transforms command strings → execution results.
     """
 
-    def __init__(self, shell: str = "bash", cwd: Optional[str] = None):
+    def __init__(self, shell: str = "fish", cwd: Optional[str] = None):
         """
         Initialize terminal executor.
 
@@ -207,7 +207,7 @@ class TerminalExecutor:
 
 def execute_command(
     command: str,
-    shell: str = "bash",
+    shell: str = "fish",
     timeout: int = 30,
     cwd: Optional[str] = None,
 ) -> Tuple[bool, Optional[CommandResult], Optional[str]]:
@@ -236,7 +236,7 @@ def execute_bash(
     cwd: Optional[str] = None,
 ) -> Tuple[bool, Optional[CommandResult], Optional[str]]:
     """Execute bash command."""
-    return execute_command(command, shell="bash", timeout=timeout, cwd=cwd)
+    return execute_command(command, timeout=timeout, cwd=cwd)
 
 
 def execute_python(
@@ -244,7 +244,7 @@ def execute_python(
     timeout: int = 30,
 ) -> Tuple[bool, Optional[CommandResult], Optional[str]]:
     """Execute Python code."""
-    return execute_command(f'python -c "{code}"', shell="bash", timeout=timeout)
+    return execute_command(f'python -c "{code}"', timeout=timeout)
 
 
 def list_directory(

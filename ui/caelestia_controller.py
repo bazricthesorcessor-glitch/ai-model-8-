@@ -27,6 +27,7 @@ from dataclasses import dataclass, asdict
 from enum import Enum
 from pathlib import Path
 from executor.input_controller import InputController
+from config.paths import path_of
 
 
 # ============================================================================
@@ -120,7 +121,7 @@ class KeyboardConfig:
             self.bindings = {
                 "super+q": "close_window",
                 "super+f": "toggle_fullscreen",
-                "super+space": "toggle_floating",
+                "super+space": "open_dolphin",
                 "super+1": "workspace_1",
                 "super+2": "workspace_2",
                 "super+3": "workspace_3",
@@ -160,7 +161,7 @@ class CaelestiaController:
         Args:
             config_path: Path to shell.json config file
         """
-        self.config_path = config_path or Path.home() / ".config" / "shell.json"
+        self.config_path = Path(config_path) if config_path else path_of("shell")
         self.shell_config = self._load_config()
 
         # Initialize all configuration sections
@@ -378,9 +379,10 @@ class CaelestiaController:
             return {"success": False, "error": "Window management disabled"}
 
         try:
-            InputController.key_combination("super+space")
-            self.state["floating"] = not self.state["floating"]
-            return {"success": True, "floating": self.state["floating"]}
+            # Note: super+space is now mapped to open_dolphin
+            # For toggle_floating, use a different approach or keybind
+            # This function is kept for API compatibility but needs keybind mapping update
+            return {"success": False, "error": "toggle_floating keybind not configured"}
         except Exception as e:
             return {"success": False, "error": str(e)}
 
