@@ -36,18 +36,11 @@ class ScreenshotTool(Tool):
             width = region[2] - region[0] if len(region) >= 3 else SCREEN_CONFIG["width"]
             height = region[3] - region[1] if len(region) >= 4 else SCREEN_CONFIG["height"]
 
-        # Placeholder: would use PIL/mss
-        # if region:
-        #     img = mss.mss().grab(region)
-        # else:
-        #     img = ImageGrab.grab()
-        # if save_path:
-        #     img.save(save_path)
-
         return {
-            "success": True,
+            "success": False,
+            "error": "screenshot not implemented - requires PIL/mss or system screenshot tool",
             "result": {
-                "captured": True,
+                "captured": False,
                 "width": width,
                 "height": height,
                 "region": region,
@@ -79,26 +72,19 @@ class FindElementTool(Tool):
         timeout = data.get("timeout", 5)
         confidence = data.get("confidence", 0.8)
 
-        # Placeholder: would use CV2/ML models
-        # matches = vision_find(description, confidence=confidence, timeout=timeout)
-        # best_match = max(matches, key=lambda x: x['confidence'])
-
-        # Example: found element at center-right of screen
-        x = int(SCREEN_CONFIG["width"] * 0.75)
-        y = int(SCREEN_CONFIG["height"] * 0.5)
-
         return {
-            "success": True,
+            "success": False,
+            "error": "find_element not implemented - requires CV2/ML models for visual search",
             "result": {
-                "found": True,
+                "found": False,
                 "description": description,
-                "x": x,
-                "y": y,
-                "width": 80,
-                "height": 30,
-                "confidence": 0.95,
-                "matches": 1,
-                "screen_position": f"{x}/{y} (of {SCREEN_CONFIG['width']}x{SCREEN_CONFIG['height']})",
+                "x": None,
+                "y": None,
+                "width": None,
+                "height": None,
+                "confidence": None,
+                "matches": 0,
+                "screen_position": f"? (of {SCREEN_CONFIG['width']}x{SCREEN_CONFIG['height']})",
             },
         }
 
@@ -130,22 +116,16 @@ class ReadTextTool(Tool):
             region_desc = f"region {region}"
             region_pixels = (region[2] - region[0]) * (region[3] - region[1]) if len(region) >= 4 else 0
 
-        # Placeholder: would use pytesseract/OCR engine
-        # if region:
-        #     img = ImageGrab.grab(bbox=region)
-        # else:
-        #     img = ImageGrab.grab()
-        # text = pytesseract.image_to_string(img, lang=language)
-
         return {
-            "success": True,
+            "success": False,
+            "error": "read_text not implemented - requires pytesseract/OCR engine",
             "result": {
-                "text": "Extracted text from screen here",
-                "confidence": 0.92,
+                "text": None,
+                "confidence": None,
                 "language": language,
                 "region": region,
                 "region_description": region_desc,
-                "lines": 3,
+                "lines": 0,
                 "screen_resolution": f"{SCREEN_CONFIG['width']}x{SCREEN_CONFIG['height']}",
             },
         }

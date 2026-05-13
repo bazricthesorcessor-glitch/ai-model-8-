@@ -107,3 +107,13 @@ if WEB_TOOLS_AVAILABLE:
     REGISTRY.register(BrowserNavigateTool())
     REGISTRY.register(BrowserClickTool())
     REGISTRY.register(BrowserTypeTool())
+
+
+# ============================================================================
+# REGISTER TOOL SERVICE WITH ROUTER
+# ============================================================================
+
+from router import register_service
+from .service import tool_service
+
+register_service("tools", tool_service)

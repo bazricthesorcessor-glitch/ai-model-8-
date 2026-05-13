@@ -7,6 +7,7 @@
 ├── api.py
 ├── api usage.md
 ├── a.py
+├── ARCHITECTURE_TIER01_COMPLETE.md
 ├── brain
 │   ├── action_parser.py
 │   ├── brain.py
@@ -65,7 +66,8 @@
 │   │   ├── executor.cpython-311.pyc
 │   │   ├── executor.cpython-314.pyc
 │   │   ├── __init__.cpython-311.pyc
-│   │   └── __init__.cpython-314.pyc
+│   │   ├── __init__.cpython-314.pyc
+│   │   └── input_controller.cpython-314.pyc
 │   ├── README.md
 │   └── test_executor.py
 ├── HYBRID_SEARCH_IMPLEMENTATION.md
@@ -243,6 +245,7 @@
 │   │   ├── registry.cpython-314.pyc
 │   │   ├── schemas.cpython-311.pyc
 │   │   ├── schemas.cpython-314.pyc
+│   │   ├── service.cpython-314.pyc
 │   │   ├── tool.cpython-311.pyc
 │   │   └── tool.cpython-314.pyc
 │   ├── query_maker1.py
@@ -256,6 +259,7 @@
 │   │   └── __pycache__
 │   │       ├── __init__.cpython-311.pyc
 │   │       └── __init__.cpython-314.pyc
+│   ├── test_service_bridge.py
 │   ├── test_tools.py
 │   ├── tool.py
 │   ├── unified_query_maker.py
@@ -271,14 +275,26 @@
 │           └── __init__.cpython-314.pyc
 ├── tree.txt
 ├── ui
+│   ├── ai_tabs.py
 │   ├── caelestia_controller.py
 │   ├── caelestia_examples.py
 │   ├── dashboard.py
+│   ├── example_primitives.py
 │   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── ai_tabs.cpython-314.pyc
+│   │   ├── caelestia_controller.cpython-314.pyc
+│   │   ├── __init__.cpython-314.pyc
+│   │   ├── quick_terminal.cpython-314.pyc
+│   │   ├── screenshot_manager.cpython-314.pyc
+│   │   └── service.cpython-314.pyc
 │   ├── quick_terminal_examples.py
 │   ├── QUICK_TERMINAL_GUIDE.md
 │   ├── quick_terminal.py
-│   └── shortcuts.sh
+│   ├── screenshot_manager.py
+│   ├── service.py
+│   ├── shortcuts.sh
+│   └── test_service_bridge.py
 ├── vision
 │   ├── examples.py
 │   ├── __init__.py
@@ -334,4 +350,4 @@
 ├── whatsapp
 └── WORKFLOW_STRUCTURE.md
 
-67 directories, 268 files
+68 directories, 283 files

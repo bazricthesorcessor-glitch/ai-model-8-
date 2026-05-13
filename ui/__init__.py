@@ -15,3 +15,14 @@ __all__ = [
     "ToggleState",
     "QuickTerminal",
 ]
+
+
+# ============================================================================
+# REGISTER UI SERVICE WITH ROUTER
+# ============================================================================
+
+from router import register_service
+from .service import ui_service
+
+register_service("ui", ui_service)
+

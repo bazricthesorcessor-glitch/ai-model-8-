@@ -27,18 +27,15 @@ class ClickElementTool(Tool):
         selector = data["selector"]
         timeout = data.get("timeout", 5)
 
-        # Placeholder: would use Selenium/Playwright
-        # element = wait_for_element(selector, timeout=timeout)
-        # element.click()
-
         return {
-            "success": True,
+            "success": False,
+            "error": "click_element not implemented - requires Selenium/Playwright browser automation",
             "result": {
                 "selector": selector,
-                "element_found": True,
-                "element_text": "Sample Text",
-                "element_tag": "button",
-                "action": "clicked",
+                "element_found": False,
+                "element_text": None,
+                "element_tag": None,
+                "action": "not_executed",
             },
         }
 
@@ -63,16 +60,11 @@ class TypeTextTool(Tool):
         selector = data.get("selector")
         delay = data.get("delay", 0.0)
 
-        # Placeholder: would use Selenium/Playwright
-        # if selector:
-        #     element = find_element(selector)
-        #     element.click()
-        # type_with_delay(text, delay=delay)
-
         return {
-            "success": True,
+            "success": False,
+            "error": "type_text not implemented - requires Selenium/Playwright browser automation",
             "result": {
-                "text_typed": text,
+                "text_typed": None,
                 "length": len(text),
                 "selector": selector,
                 "delay_per_char": delay,
@@ -99,17 +91,14 @@ class NavigateTool(Tool):
         url = data["url"]
         timeout = data.get("timeout", 30)
 
-        # Placeholder: would use Selenium/Playwright
-        # driver.get(url)
-        # driver.wait_until_page_ready(timeout=timeout)
-
         return {
-            "success": True,
+            "success": False,
+            "error": "navigate not implemented - requires Selenium/Playwright browser automation",
             "result": {
                 "url": url,
-                "status": "loaded",
-                "title": "Page Title",
-                "load_time_ms": 245.6,
+                "status": "not_loaded",
+                "title": None,
+                "load_time_ms": None,
             },
         }
 
@@ -133,20 +122,13 @@ class ReadContentTool(Tool):
         selector = data.get("selector")
         timeout = data.get("timeout", 5)
 
-        # Placeholder: would use Selenium/Playwright
-        # if selector:
-        #     element = wait_for_element(selector, timeout=timeout)
-        #     text = element.text
-        #     html = element.get_attribute('innerHTML')
-        # else:
-        #     text = driver.page_source
-
         return {
-            "success": True,
+            "success": False,
+            "error": "read_content not implemented - requires Selenium/Playwright browser automation",
             "result": {
-                "text": "Page content here...",
-                "html_length": 1234,
+                "text": None,
+                "html_length": 0,
                 "selector": selector,
-                "status": "content_retrieved",
+                "status": "not_retrieved",
             },
         }
