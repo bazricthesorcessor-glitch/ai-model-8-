@@ -279,6 +279,7 @@
 │   ├── caelestia_controller.py
 │   ├── caelestia_examples.py
 │   ├── dashboard.py
+│   ├── example_complete_workflow.py
 │   ├── example_primitives.py
 │   ├── __init__.py
 │   ├── __pycache__
@@ -350,4 +351,4 @@
 ├── whatsapp
 └── WORKFLOW_STRUCTURE.md
 
-68 directories, 283 files
+68 directories, 284 files

@@ -23,6 +23,7 @@ Example dispatch:
 from router.message import Message, Response
 from .screenshot_manager import ScreenshotManager
 from .ai_tabs import AITabsManager
+from executor.input_controller import InputController
 from typing import Dict, Any
 
 
@@ -150,8 +151,68 @@ def _handle_action(action: str, data: Dict[str, Any]) -> Dict[str, Any]:
         }
 
     # ========================================================================
-    # UNKNOWN ACTION
+    # KEYBOARD/INPUT PRIMITIVES
     # ========================================================================
+
+    elif action == "paste_clipboard":
+        try:
+            InputController.key_combination("ctrl+v")
+            return {
+                "success": True,
+                "action": "paste_clipboard",
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to paste: {str(e)}",
+            }
+
+    elif action == "press_enter":
+        try:
+            InputController.press_key("Return")
+            return {
+                "success": True,
+                "action": "press_enter",
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to press Enter: {str(e)}",
+            }
+
+    elif action == "hotkey":
+        keys = data.get("keys")
+        if not keys:
+            return {"success": False, "error": "keys parameter required"}
+        try:
+            InputController.key_combination(keys)
+            return {
+                "success": True,
+                "action": "hotkey",
+                "keys": keys,
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to execute hotkey: {str(e)}",
+            }
+
+    elif action == "type_text":
+        text = data.get("text")
+        if text is None:
+            return {"success": False, "error": "text parameter required"}
+        try:
+            InputController.type_text(text)
+            return {
+                "success": True,
+                "action": "type_text",
+                "length": len(text),
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to type text: {str(e)}",
+            }
 
     else:
         available_actions = [
@@ -163,6 +224,10 @@ def _handle_action(action: str, data: Dict[str, Any]) -> Dict[str, Any]:
             "list_providers",
             "get_current_provider",
             "detect_provider",
+            "paste_clipboard",
+            "press_enter",
+            "hotkey",
+            "type_text",
         ]
         return {
             "success": False,

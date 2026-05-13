@@ -236,7 +236,7 @@ def execute_bash(
     cwd: Optional[str] = None,
 ) -> Tuple[bool, Optional[CommandResult], Optional[str]]:
     """Execute bash command."""
-    return execute_command(command, timeout=timeout, cwd=cwd)
+    return execute_command(command, shell="bash", timeout=timeout, cwd=cwd)
 
 
 def execute_python(
