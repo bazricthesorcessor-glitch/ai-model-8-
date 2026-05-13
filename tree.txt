@@ -250,6 +250,7 @@
 │   ├── README.md
 │   ├── registry.py
 │   ├── schemas.py
+│   ├── service.py
 │   ├── system
 │   │   ├── __init__.py
 │   │   └── __pycache__
@@ -333,4 +334,4 @@
 ├── whatsapp
 └── WORKFLOW_STRUCTURE.md
 
-67 directories, 267 files
+67 directories, 268 files

@@ -24,18 +24,12 @@ class KeyboardTypeTool(Tool):
     def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Type text."""
         text = data["text"]
-        delay = data.get("delay", 0.0)
-
-        # Placeholder: would use pynput/pyautogui
-        # keyboard = Controller()
-        # for char in text:
-        #     keyboard.type(char)
-        #     if delay: time.sleep(delay)
 
         return {
-            "success": True,
+            "success": False,
+            "error": "keyboard_type not implemented - requires ydotool or X11/Wayland integration",
             "result": {
-                "text_typed": text,
+                "text_typed": None,
                 "length": len(text),
                 "method": "keyboard",
             },
@@ -60,15 +54,12 @@ class HotKeyTool(Tool):
         """Execute hotkey."""
         keys = data["keys"].lower()
 
-        # Placeholder: would use pynput
-        # hotkey_parts = keys.split("+")
-        # keyboard.hotkey(*hotkey_parts)
-
         return {
-            "success": True,
+            "success": False,
+            "error": "hotkey not implemented - requires ydotool or X11/Wayland integration",
             "result": {
                 "keys": keys,
-                "executed": True,
+                "executed": False,
                 "modifiers": keys.count("+") > 0,
             },
         }

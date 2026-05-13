@@ -55220,6 +55220,87 @@ if __name__ == "__main__":
 
 
 ================================================================================
+FILE: tools/service.py
+================================================================================
+
+"""
+Tool service - Router bridge for tool dispatch and execution.
+Converts router Messages into tool registry calls.
+"""
+
+from router.message import Message, Response
+from .registry import REGISTRY
+
+
+def tool_service(message: Message) -> Response:
+    """
+    Execute tool via router service interface.
+
+    Message format:
+    {
+        "source": "supervisor",
+        "target": "tools",
+        "action": "dispatch_tool",
+        "payload": {
+            "tool": "execute_command",
+            "data": {
+                "command": "ls -la",
+                "shell": "fish"
+            }
+        }
+    }
+
+    Args:
+        message: Router Message with tool name and data in payload
+
+    Returns:
+        Response with tool execution result
+    """
+    try:
+        # Extract tool name from payload
+        tool_name = message.payload.get("tool")
+        if not tool_name:
+            return Response(
+                source="tools",
+                success=False,
+                error="payload.tool is required"
+            )
+
+        # Get tool from registry
+        tool = REGISTRY.get(tool_name)
+        if not tool:
+            available = REGISTRY.list_names()
+            return Response(
+                source="tools",
+                success=False,
+                error=f"tool '{tool_name}' not found. Available: {available}"
+            )
+
+        # Extract data payload
+        data = message.payload.get("data", {})
+
+        # Run tool (returns Tool-wrapped result with success/error/result)
+        tool_result = tool.run(data, context=message.context)
+
+        # Tool result already has success/error/result fields
+        # Wrap it in a Response for router compatibility
+        return Response(
+            source="tools",
+            success=tool_result.get("success", False),
+            result=tool_result,
+            error=tool_result.get("error")
+        )
+
+    except Exception as e:
+        return Response(
+            source="tools",
+            success=False,
+            error=f"tool service error: {str(e)}"
+        )
+
+
+
+================================================================================
 FILE: todo/__init__.py
 ================================================================================
 
@@ -71426,18 +71507,12 @@ class KeyboardTypeTool(Tool):
     def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Type text."""
         text = data["text"]
-        delay = data.get("delay", 0.0)
-
-        # Placeholder: would use pynput/pyautogui
-        # keyboard = Controller()
-        # for char in text:
-        #     keyboard.type(char)
-        #     if delay: time.sleep(delay)
 
         return {
-            "success": True,
+            "success": False,
+            "error": "keyboard_type not implemented - requires ydotool or X11/Wayland integration",
             "result": {
-                "text_typed": text,
+                "text_typed": None,
                 "length": len(text),
                 "method": "keyboard",
             },
@@ -71462,15 +71537,12 @@ class HotKeyTool(Tool):
         """Execute hotkey."""
         keys = data["keys"].lower()
 
-        # Placeholder: would use pynput
-        # hotkey_parts = keys.split("+")
-        # keyboard.hotkey(*hotkey_parts)
-
         return {
-            "success": True,
+            "success": False,
+            "error": "hotkey not implemented - requires ydotool or X11/Wayland integration",
             "result": {
                 "keys": keys,
-                "executed": True,
+                "executed": False,
                 "modifiers": keys.count("+") > 0,
             },
         }
@@ -71524,18 +71596,14 @@ class MouseClickTool(Tool):
         x, y = data["x"], data["y"]
         button = data.get("button", "left")
 
-        # Placeholder: would use pynput/pyautogui
-        # mouse = Mouse()
-        # mouse.position = (x, y)
-        # mouse.click(button=Button.left if button == 'left' else Button.right)
-
         return {
-            "success": True,
+            "success": False,
+            "error": "mouse_click not implemented - requires ydotool or X11/Wayland integration",
             "result": {
                 "x": x,
                 "y": y,
                 "button": button,
-                "clicked": True,
+                "clicked": False,
                 "screen_bounds": {
                     "width": SCREEN_CONFIG["width"],
                     "height": SCREEN_CONFIG["height"],
@@ -71577,16 +71645,14 @@ class MouseMoveTool(Tool):
         x, y = data["x"], data["y"]
         duration = data.get("duration", 0.5)
 
-        # Placeholder: would use pynput/pyautogui
-        # mouse.move_to(x, y, duration=duration)
-
         return {
-            "success": True,
+            "success": False,
+            "error": "mouse_move not implemented - requires ydotool or X11/Wayland integration",
             "result": {
                 "x": x,
                 "y": y,
                 "duration": duration,
-                "moved": True,
+                "moved": False,
                 "screen_bounds": {
                     "width": SCREEN_CONFIG["width"],
                     "height": SCREEN_CONFIG["height"],
@@ -71640,20 +71706,15 @@ class DragDropTool(Tool):
         # Calculate distance
         distance = ((dst_x - src_x) ** 2 + (dst_y - src_y) ** 2) ** 0.5
 
-        # Placeholder: would use pynput
-        # mouse.position = (src_x, src_y)
-        # mouse.press(Button.left)
-        # mouse.move_to(dst_x, dst_y, duration=duration)
-        # mouse.release(Button.left)
-
         return {
-            "success": True,
+            "success": False,
+            "error": "drag_drop not implemented - requires ydotool or X11/Wayland integration",
             "result": {
                 "from": (src_x, src_y),
                 "to": (dst_x, dst_y),
                 "distance": distance,
                 "duration": duration,
-                "dragged": True,
+                "dragged": False,
                 "screen_bounds": {
                     "width": SCREEN_CONFIG["width"],
                     "height": SCREEN_CONFIG["height"],
@@ -71854,23 +71915,25 @@ class OpenAppTool(Tool):
         """Open application."""
         app = data["app"]
 
-        # Placeholder: would use subprocess
-        # try:
-        #     process = subprocess.Popen([app])
-        #     pid = process.pid
-        #     success = True
-        # except Exception as e:
-        #     success = False
-        #     pid = None
-
-        return {
-            "success": True,
-            "result": {
-                "app": app,
-                "opened": True,
-                "pid": 12345,
-            },
-        }
+        try:
+            process = subprocess.Popen([app])
+            pid = process.pid
+            return {
+                "success": True,
+                "result": {
+                    "app": app,
+                    "opened": True,
+                    "pid": pid,
+                },
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to open app '{app}': {str(e)}",
+                "result": {
+                    "app": app,
+                },
+            }
 
 
 class CloseAppTool(Tool):
@@ -71891,21 +71954,11 @@ class CloseAppTool(Tool):
         """Close application."""
         app = data["app"]
 
-        # Placeholder: would find and terminate process
-        # try:
-        #     for proc in psutil.process_iter(['pid', 'name']):
-        #         if proc.info['name'].lower() == app.lower():
-        #             proc.kill()
-        #             success = True
-        #             break
-        # except Exception as e:
-        #     success = False
-
         return {
-            "success": True,
+            "success": False,
+            "error": "close_app not implemented - use system kill command instead",
             "result": {
                 "app": app,
-                "closed": True,
             },
         }
 

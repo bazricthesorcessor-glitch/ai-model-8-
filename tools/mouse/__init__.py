@@ -41,18 +41,14 @@ class MouseClickTool(Tool):
         x, y = data["x"], data["y"]
         button = data.get("button", "left")
 
-        # Placeholder: would use pynput/pyautogui
-        # mouse = Mouse()
-        # mouse.position = (x, y)
-        # mouse.click(button=Button.left if button == 'left' else Button.right)
-
         return {
-            "success": True,
+            "success": False,
+            "error": "mouse_click not implemented - requires ydotool or X11/Wayland integration",
             "result": {
                 "x": x,
                 "y": y,
                 "button": button,
-                "clicked": True,
+                "clicked": False,
                 "screen_bounds": {
                     "width": SCREEN_CONFIG["width"],
                     "height": SCREEN_CONFIG["height"],
@@ -94,16 +90,14 @@ class MouseMoveTool(Tool):
         x, y = data["x"], data["y"]
         duration = data.get("duration", 0.5)
 
-        # Placeholder: would use pynput/pyautogui
-        # mouse.move_to(x, y, duration=duration)
-
         return {
-            "success": True,
+            "success": False,
+            "error": "mouse_move not implemented - requires ydotool or X11/Wayland integration",
             "result": {
                 "x": x,
                 "y": y,
                 "duration": duration,
-                "moved": True,
+                "moved": False,
                 "screen_bounds": {
                     "width": SCREEN_CONFIG["width"],
                     "height": SCREEN_CONFIG["height"],
@@ -157,20 +151,15 @@ class DragDropTool(Tool):
         # Calculate distance
         distance = ((dst_x - src_x) ** 2 + (dst_y - src_y) ** 2) ** 0.5
 
-        # Placeholder: would use pynput
-        # mouse.position = (src_x, src_y)
-        # mouse.press(Button.left)
-        # mouse.move_to(dst_x, dst_y, duration=duration)
-        # mouse.release(Button.left)
-
         return {
-            "success": True,
+            "success": False,
+            "error": "drag_drop not implemented - requires ydotool or X11/Wayland integration",
             "result": {
                 "from": (src_x, src_y),
                 "to": (dst_x, dst_y),
                 "distance": distance,
                 "duration": duration,
-                "dragged": True,
+                "dragged": False,
                 "screen_bounds": {
                     "width": SCREEN_CONFIG["width"],
                     "height": SCREEN_CONFIG["height"],

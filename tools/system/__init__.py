@@ -26,23 +26,25 @@ class OpenAppTool(Tool):
         """Open application."""
         app = data["app"]
 
-        # Placeholder: would use subprocess
-        # try:
-        #     process = subprocess.Popen([app])
-        #     pid = process.pid
-        #     success = True
-        # except Exception as e:
-        #     success = False
-        #     pid = None
-
-        return {
-            "success": True,
-            "result": {
-                "app": app,
-                "opened": True,
-                "pid": 12345,
-            },
-        }
+        try:
+            process = subprocess.Popen([app])
+            pid = process.pid
+            return {
+                "success": True,
+                "result": {
+                    "app": app,
+                    "opened": True,
+                    "pid": pid,
+                },
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to open app '{app}': {str(e)}",
+                "result": {
+                    "app": app,
+                },
+            }
 
 
 class CloseAppTool(Tool):
@@ -63,21 +65,11 @@ class CloseAppTool(Tool):
         """Close application."""
         app = data["app"]
 
-        # Placeholder: would find and terminate process
-        # try:
-        #     for proc in psutil.process_iter(['pid', 'name']):
-        #         if proc.info['name'].lower() == app.lower():
-        #             proc.kill()
-        #             success = True
-        #             break
-        # except Exception as e:
-        #     success = False
-
         return {
-            "success": True,
+            "success": False,
+            "error": "close_app not implemented - use system kill command instead",
             "result": {
                 "app": app,
-                "closed": True,
             },
         }
 
