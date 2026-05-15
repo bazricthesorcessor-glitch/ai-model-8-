@@ -1,4 +1,4 @@
-.
+hello.
 ├── 2026-05-12_CONTEXT_SEED.md
 ├── agent
 │   ├── agent_cli.py
