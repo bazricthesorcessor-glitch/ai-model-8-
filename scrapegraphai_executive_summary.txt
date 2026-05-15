@@ -1,4 +1,4 @@
-SCRAPEGRAPHAI: SEMANTIC WEB SCRAPING FOR AVRIL
+SCRAPEGRAPHAI: SEMANTIC WEB SCRAPING FOR ELZYRA
 Technical Summary (May 2026)
 
 CORE INNOVATION
@@ -23,7 +23,7 @@ ScrapeGraphAI abstracts 25+ LLM providers through LangChain, supporting both API
       "rate_limit": {"requests_per_second": 5}
   }
 
-Local Ollama integration enables cost-free, on-premises extraction ideal for AVRIL's privacy requirements and bulk processing economics. Schema-aware prompting with Pydantic automatically enforces output structure and type validation.
+Local Ollama integration enables cost-free, on-premises extraction ideal for ELZYRA's privacy requirements and bulk processing economics. Schema-aware prompting with Pydantic automatically enforces output structure and type validation.
 
 KEY CAPABILITIES
 
@@ -35,13 +35,13 @@ KEY CAPABILITIES
 
 4. Observability: get_execution_info() returns detailed metrics—token usage, execution time per node, estimated costs—essential for budgeting large-scale operations.
 
-COMPARATIVE ADVANTAGE FOR AVRIL
+COMPARATIVE ADVANTAGE FOR ELZYRA
 
 Traditional scrapers (Beautiful Soup, Selenium) become fragile maintenance nightmares when real estate websites redesign. CSS selectors break. XPath patterns fail. Each site requires custom logic.
 
 ScrapeGraphAI adapts automatically. A single natural language prompt works across Zillow, Redfin, MLS portals, and custom systems without code changes. HTML layout shifts don't require scraper rewrites—the LLM contextually understands content regardless of DOM structure.
 
-For AVRIL's semi-structured data (mixed narrative descriptions + metadata), LLMs excel at extracting semantic meaning humans recognize. Complex property details—from condition descriptions to market context—become queryable without brittle parsing rules.
+For ELZYRA's semi-structured data (mixed narrative descriptions + metadata), LLMs excel at extracting semantic meaning humans recognize. Complex property details—from condition descriptions to market context—become queryable without brittle parsing rules.
 
 Scaling to 10,000+ listings becomes economical: Ollama local models eliminate per-request API costs, while parallel graph execution and rate limiting keep operations efficient. Built-in quality assurance reduces false negatives and data corruption.
 
@@ -53,4 +53,4 @@ DEPLOYMENT PATH
 4. Deploy SmartScraperMultiGraph for parallel batch processing
 5. Monitor execution metrics to optimize costs and accuracy
 
-The paradigm shift from rule-based to semantic extraction positions ScrapeGraphAI as strategic infrastructure for AVRIL's multi-source real estate data aggregation strategy.
+The paradigm shift from rule-based to semantic extraction positions ScrapeGraphAI as strategic infrastructure for ELZYRA's multi-source real estate data aggregation strategy.

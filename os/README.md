@@ -157,7 +157,7 @@ windows.maximize_window()
 windows.toggle_floating()
 
 # Window search
-windows_found = windows.find_windows_by_class("firefox")
+windows_found = windows.find_windows_by_class("brave")
 
 # History
 windows.record_window("address1")

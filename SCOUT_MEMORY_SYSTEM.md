@@ -301,7 +301,7 @@ summary = ContextCompiler.get_context_summary()
 # Compile agent-specific context (agent's type only)
 agent_context = ContextCompiler.compile_agent_context(
     agent_name="executor",
-    query="Open Firefox and navigate to example.com",
+    query="Open Brave and navigate to example.com",
     memory_type="recent"
 )
 ```

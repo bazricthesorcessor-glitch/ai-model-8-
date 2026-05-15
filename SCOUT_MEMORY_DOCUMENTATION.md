@@ -92,7 +92,7 @@ UPDATE STATE:
     state = StateSnapshot(
         timestamp=time.time(),
         ui_state={
-            "active_window": "Firefox",
+            "active_window": "Brave",
             "workspace": 2,
             "fullscreen": False,
         },

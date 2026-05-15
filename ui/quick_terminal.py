@@ -21,7 +21,7 @@ Usage:
     qt = QuickTerminal()
     qt.open_youtube()
     qt.screenshot_and_copy()
-    qt.send_screenshot_to_chatgpt()
+    qt.paste_screenshot_into_chatgpt()
 """
 
 import subprocess
@@ -32,6 +32,7 @@ import os
 from pathlib import Path
 from typing import Dict, Any, Optional
 from executor.input_controller import InputController
+from .ai_tabs import AITabsManager
 
 
 class QuickTerminal:
@@ -40,8 +41,8 @@ class QuickTerminal:
     def __init__(self):
         """Initialize quick terminal utilities."""
         self.controller = None
-        self._firefox_pid = None
-        self._chrome_pid = None
+        self._browser_pid = None
+        self.tabs = AITabsManager()
         self.screenshot_path = Path.home() / ".cache" / "caelestia" / "screenshots"
         self.screenshot_path.mkdir(parents=True, exist_ok=True)
 
@@ -50,29 +51,20 @@ class QuickTerminal:
     # ========================================================================
 
     def open_youtube(self) -> Dict[str, Any]:
-        """Open YouTube in Firefox."""
+        """Open YouTube in Elzyra's Brave profile."""
         print("[→] Opening YouTube...")
 
         try:
-            # Check if Firefox is running
-            firefox_running = self._check_browser_running("firefox")
+            result = self.tabs.open_tab("https://youtube.com")
+            if not result["success"] and "unavailable" in result.get("error", "").lower():
+                launch_result = self.tabs.launch_brave()
+                if not launch_result["success"]:
+                    return launch_result
+                time.sleep(2)
+                result = self.tabs.open_tab("https://youtube.com")
 
-            if not firefox_running:
-                print("  [*] Starting Firefox...")
-                subprocess.Popen(
-                    ["firefox", "https://youtube.com"],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                time.sleep(4)
-            else:
-                print("  [*] Firefox already running, opening YouTube in new tab...")
-                # Open YouTube in new tab
-                InputController.key_combination("ctrl+t")
-                time.sleep(1)
-                InputController.type_text("youtube.com")
-                InputController.press_key("Return")
-                time.sleep(3)
+            if not result["success"]:
+                return result
 
             return {
                 "success": True,
@@ -207,63 +199,40 @@ class QuickTerminal:
     # ========================================================================
 
     def open_chatgpt(self) -> Dict[str, Any]:
-        """Open ChatGPT in Firefox."""
+        """Open or focus ChatGPT in Elzyra's Brave profile."""
         print("[→] Opening ChatGPT...")
 
         try:
-            # Check if Firefox is running
-            firefox_running = self._check_browser_running("firefox")
+            result = self.tabs.focus_provider("chatgpt")
+            if not result["success"] and "unavailable" in result.get("error", "").lower():
+                launch_result = self.tabs.launch_brave()
+                if not launch_result["success"]:
+                    return launch_result
+                time.sleep(2)
+                result = self.tabs.focus_provider("chatgpt")
 
-            if not firefox_running:
-                print("  [*] Starting Firefox...")
-                subprocess.Popen(
-                    ["firefox", "https://chat.openai.com"],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                time.sleep(5)
-                return {
-                    "success": True,
-                    "action": "open_chatgpt",
-                    "status": "opened",
-                }
+            if not result["success"]:
+                return result
 
-            # Firefox is running, check for ChatGPT tab
-            print("  [*] Firefox running, checking for ChatGPT tab...")
-            chatgpt_found = self._find_and_switch_tab("chat.openai.com")
-
-            if chatgpt_found:
-                print("  [✓] ChatGPT tab found and activated")
-                return {
-                    "success": True,
-                    "action": "open_chatgpt",
-                    "status": "tab_found",
-                }
-            else:
-                print("  [*] ChatGPT tab not found, opening new tab...")
-                InputController.key_combination("ctrl+t")
-                time.sleep(1)
-                InputController.type_text("chat.openai.com")
-                InputController.press_key("Return")
-                time.sleep(4)
-                return {
-                    "success": True,
-                    "action": "open_chatgpt",
-                    "status": "new_tab",
-                }
+            print(f"  [✓] ChatGPT {result.get('action', 'ready')}")
+            return {
+                "success": True,
+                "action": "open_chatgpt",
+                "status": result.get("action", "ready"),
+            }
 
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def send_screenshot_to_chatgpt(
+    def paste_screenshot_into_chatgpt(
         self, region: Optional[tuple] = None
     ) -> Dict[str, Any]:
         """
-        Complete workflow: Take screenshot, open ChatGPT, paste and send.
+        Compose screenshot primitives to paste an image into ChatGPT.
 
         Usage:
             qt = QuickTerminal()
-            qt.send_screenshot_to_chatgpt()
+            qt.paste_screenshot_into_chatgpt()
         """
         print("\n" + "=" * 60)
         print("SCREENSHOT → CHATGPT WORKFLOW")
@@ -328,7 +297,7 @@ class QuickTerminal:
 
             return {
                 "success": True,
-                "action": "send_screenshot_to_chatgpt",
+                "action": "paste_screenshot_into_chatgpt",
                 "screenshot_path": screenshot_path,
                 "status": "completed",
             }
@@ -336,6 +305,15 @@ class QuickTerminal:
         except Exception as e:
             print(f"  [✗] Error during paste: {e}")
             return {"success": False, "error": str(e)}
+
+    def send_screenshot_to_chatgpt(
+        self, region: Optional[tuple] = None
+    ) -> Dict[str, Any]:
+        """Deprecated compatibility wrapper for the composable primitive flow."""
+        result = self.paste_screenshot_into_chatgpt(region)
+        if result.get("success"):
+            result["deprecated_action"] = "send_screenshot_to_chatgpt"
+        return result
 
     # ========================================================================
     # BRIGHTNESS CONTROL
@@ -456,7 +434,7 @@ class QuickTerminal:
         )
         return result.returncode == 0
 
-    def _check_browser_running(self, browser: str = "firefox") -> bool:
+    def _check_browser_running(self, browser: str = "brave") -> bool:
         """Check if browser is running."""
         try:
             result = subprocess.run(
@@ -464,25 +442,6 @@ class QuickTerminal:
                 capture_output=True,
             )
             return result.returncode == 0
-        except:
-            return False
-
-    def _find_and_switch_tab(self, url_fragment: str) -> bool:
-        """Find and switch to tab by URL fragment."""
-        try:
-            # This uses xdotool to search window titles
-            result = subprocess.run(
-                ["xdotool", "search", "--name", url_fragment],
-                capture_output=True,
-                text=True,
-            )
-
-            if result.returncode == 0:
-                window_id = result.stdout.strip().split("\n")[0]
-                subprocess.run(["xdotool", "windowactivate", window_id])
-                return True
-
-            return False
         except:
             return False
 
@@ -496,7 +455,7 @@ class QuickTerminal:
 
     def chatgpt_screenshot(self) -> Dict[str, Any]:
         """Quick ChatGPT screenshot (take + copy + paste)."""
-        return self.send_screenshot_to_chatgpt()
+        return self.paste_screenshot_into_chatgpt()
 
     def yt(self) -> Dict[str, Any]:
         """Quick YouTube shortcut."""
@@ -528,7 +487,7 @@ USAGE:
 COMMANDS:
 
 YouTube:
-    youtube              - Open YouTube in Firefox
+    youtube              - Open YouTube in Elzyra Brave
 
 Screenshots:
     screenshot           - Take screenshot and copy to clipboard
@@ -541,7 +500,7 @@ Brightness:
     brightness-info      - Show current brightness
 
 ChatGPT:
-    chatgpt              - Open ChatGPT in Firefox
+    chatgpt              - Open ChatGPT in Elzyra Brave
     screenshot-chatgpt   - Take screenshot and send to ChatGPT
 
 EXAMPLES:
@@ -574,7 +533,7 @@ LIBRARY USAGE:
 
     # Screenshots
     qt.screenshot_and_copy()
-    qt.send_screenshot_to_chatgpt()
+    qt.paste_screenshot_into_chatgpt()
 
     # Brightness
     qt.brightness_up()
@@ -584,8 +543,8 @@ LIBRARY USAGE:
 
 FEATURES:
 
-    ✓ Auto-detects if Firefox is running
-    ✓ Reuses existing ChatGPT tab if open
+    ✓ Uses Elzyra's dedicated Brave profile
+    ✓ Reuses existing ChatGPT tab via CDP if open
     ✓ Copies screenshots to clipboard automatically
     ✓ Keyboard/mouse automation for pasting
     ✓ Works with Wayland (wl-copy) and X11 (xclip)
@@ -594,13 +553,13 @@ FEATURES:
 DEPENDENCIES:
 
     Required:
-    - Firefox or Chrome
+    - Brave
     - brightnessctl (for brightness control)
     - xclip or wl-copy (for clipboard)
     - gnome-screenshot, scrot, or ImageMagick (for screenshots)
 
     Optional:
-    - xdotool (for window detection)
+    - Brave remote debugging on port 9222
 
         """
         print(help_text)
@@ -631,7 +590,7 @@ def main():
         print(json.dumps(result, indent=2))
 
     elif command == "screenshot-to-chatgpt" or command == "screenshot-chatgpt":
-        result = qt.send_screenshot_to_chatgpt()
+        result = qt.paste_screenshot_into_chatgpt()
         print(json.dumps(result, indent=2))
 
     # ChatGPT

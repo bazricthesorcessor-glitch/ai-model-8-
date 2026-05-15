@@ -11,6 +11,7 @@ Provides:
 
 from typing import Dict, Any, Optional, Tuple
 import json
+from config import endpoint_of
 
 
 class ScrapeGraphAIExtractor:
@@ -101,7 +102,7 @@ class ScrapeGraphAIExtractor:
                 "llm_config": {
                     "model": self.model or "qwen2.5:7b",
                     "api_key": "ollama",  # Special key for local models
-                    "base_url": "http://localhost:11434",
+                    "base_url": endpoint_of("ollama"),
                     "temperature": 0.1,
                 }
             })

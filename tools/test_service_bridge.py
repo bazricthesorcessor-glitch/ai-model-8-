@@ -31,7 +31,7 @@ def test_tool_dispatch_execute_command():
         payload={
             "tool": "execute_command",
             "data": {
-                "command": "echo 'Hello from Avril tool service'",
+                "command": "echo 'Hello from Elzyra tool service'",
                 "shell": "/bin/bash",
                 "timeout": 5,
             }

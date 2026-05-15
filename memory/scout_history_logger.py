@@ -19,6 +19,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass, asdict
+from config import LOCAL_SHARE_DIR
 
 
 @dataclass
@@ -41,7 +42,7 @@ class ScoutHistoryLogger:
     """Enhanced Scout history logger with event tracking."""
 
     # Text log (for human reading)
-    DEFAULT_TEXT_LOG = os.path.expanduser("~/.avril/scout_history.txt")
+    DEFAULT_TEXT_LOG = str(LOCAL_SHARE_DIR / "scout_history.txt")
 
     # Event log (for memory system)
     DEFAULT_EVENT_LOG_DIR = Path("memory/archive/scout_events")

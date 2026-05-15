@@ -11,8 +11,10 @@ import subprocess
 import json
 import socket
 from pathlib import Path
+from config import APP_NAME
+from agent.agent_config import SOCKET_FILE as CONFIG_SOCKET_FILE
 
-SOCKET_FILE = Path.home() / '.local/run/hyprland-agent.sock'
+SOCKET_FILE = Path(CONFIG_SOCKET_FILE).expanduser()
 
 
 def get_daemon_status() -> dict:
@@ -76,7 +78,7 @@ def draw_dashboard(stdscr):
         height, width = stdscr.getmaxyx()
 
         # Title
-        title = "🤖 Hyprland AI Agent Dashboard"
+        title = f"{APP_NAME} Dashboard"
         stdscr.addstr(0, (width - len(title)) // 2, title, curses.color_pair(2) | curses.A_BOLD)
 
         # Time
@@ -145,7 +147,7 @@ def draw_dashboard(stdscr):
                 pass
             elif key == ord('r'):
                 # Restart daemon
-                subprocess.run(['systemctl', '--user', 'restart', 'hyprland-ai-agent'])
+                subprocess.run(['systemctl', '--user', 'restart', 'elzyra-agent'])
         except:
             pass
 

@@ -308,7 +308,7 @@ Runtime:
   - pactl: Volume control
   - nmcli: Network control (WiFi, Bluetooth)
   - ydotool: Input control (keyboard/mouse)
-  - firefox/chromium: Browser automation
+  - brave/chromium: Browser automation
 
 Python:
   - json: Configuration

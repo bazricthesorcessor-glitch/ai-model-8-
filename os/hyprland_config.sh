@@ -1,10 +1,10 @@
 #!/bin/bash
-# Hyprland Configuration Snippet for AI Agent
+# Hyprland Configuration Snippet for Elzyra
 # Add these bindings to ~/.config/hypr/hyprland.conf
 
 cat > /tmp/hyprland_ai_config.conf << 'EOF'
 # ╔═══════════════════════════════════════════════════════════════════════════╗
-# ║         Hyprland AI Agent Integration - Add to hyprland.conf              ║
+# ║         Elzyra Integration - Add to hyprland.conf                         ║
 # ╚═══════════════════════════════════════════════════════════════════════════╝
 
 $AI_SCRIPT = ~/ai\ model\ 8/hyprland_ai_agent.py
@@ -22,7 +22,7 @@ bind = SUPER, A, exec, $TERM -o remember_window_size=no -o initial_window_width=
 bind = SUPER SHIFT, A, exec, python3 ~/ai\ model\ 8/dashboard.py
 
 # Super+Ctrl+A: Restart daemon
-bind = SUPER CTRL, A, exec, systemctl --user restart hyprland-ai-agent
+bind = SUPER CTRL, A, exec, systemctl --user restart elzyra-agent
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Quick Commands via AI (No Terminal)

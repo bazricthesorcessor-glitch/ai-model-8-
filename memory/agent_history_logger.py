@@ -5,15 +5,16 @@ Separate history for each agent, organized by date.
 Creates new file each day automatically.
 
 Files:
-- ~/.avril/scout_executor_{YYYY-MM-DD}.txt    (Scout ↔ Executor)
-- ~/.avril/scout_thinking_{YYYY-MM-DD}.txt    (Scout ↔ Thinking Model)
-- ~/.avril/scout_router_{YYYY-MM-DD}.txt      (Scout ↔ Router Agent)
+- ~/.local/share/elzyra/scout_executor_{YYYY-MM-DD}.txt    (Scout ↔ Executor)
+- ~/.local/share/elzyra/scout_thinking_{YYYY-MM-DD}.txt    (Scout ↔ Thinking Model)
+- ~/.local/share/elzyra/scout_router_{YYYY-MM-DD}.txt      (Scout ↔ Router Agent)
 """
 
 import os
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List
+from config import LOCAL_SHARE_DIR
 
 
 class AgentHistoryLogger:
@@ -25,7 +26,7 @@ class AgentHistoryLogger:
         "router": "Scout ↔ Router Agent (Task routing & dispatch)",
     }
 
-    LOG_DIR = os.path.expanduser("~/.avril")
+    LOG_DIR = str(LOCAL_SHARE_DIR)
 
     def __init__(self, agent_name: str):
         """

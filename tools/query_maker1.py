@@ -28,6 +28,7 @@ import re
 import json
 import subprocess
 import os
+from config import BRAVE_PROFILE_DIR
 
 
 class StateGatherer:
@@ -44,7 +45,7 @@ class StateGatherer:
                     return {
                         "shell": "fish",  # Default
                         "cwd": os.getcwd(),
-                        "venv": "/mnt/D/venvs/avril-main",
+                        "venv": os.environ.get("VIRTUAL_ENV", ""),
                         "terminal_app": config.get("general", {}).get("apps", {}).get("terminal", ["foot"])[0],
                         "explorer_app": config.get("general", {}).get("apps", {}).get("explorer", ["dolphin"])[0],
                         "media_player": config.get("services", {}).get("defaultPlayer", "Spotify"),
@@ -78,7 +79,7 @@ class StateGatherer:
     def get_browser_state() -> Dict[str, Any]:
         """Gather browser state (tabs, URLs, active tab)."""
         return {
-            "active_browser": "firefox",
+            "active_browser": "brave",
             "tabs": [
                 {
                     "id": 1,
@@ -106,7 +107,7 @@ class StateGatherer:
         return {
             "current_workspace": 1,
             "occupied_workspaces": {
-                "1": "firefox",
+                "1": "brave",
                 "2": "terminal",
                 "3": "vscode",
             },
@@ -125,7 +126,7 @@ class StateGatherer:
             "switch_workspace_1": "SUPER+1",
             "switch_workspace_2": "SUPER+2",
             "switch_workspace_3": "SUPER+3",
-            "focus_firefox": "SUPER+W",
+            "focus_browser": "SUPER+W",
             "focus_vscode": "SUPER+E",
         }
 
@@ -136,8 +137,9 @@ class StateGatherer:
             "HOME": os.path.expanduser("~"),
             "XDG_CONFIG_HOME": os.path.expanduser("~/.config"),
             "CAELESTIA_CONFIG": os.path.expanduser("~/.config/caelestia/shell.json"),
-            "MAIN_VENV": "/mnt/D/venvs/avril-main",
-            "PYTHON": "/mnt/D/venvs/avril-main/bin/python3",
+            "MAIN_VENV": os.environ.get("VIRTUAL_ENV", ""),
+            "PYTHON": os.environ.get("PYTHON", "python3"),
+            "BRAVE_PROFILE_DIR": str(BRAVE_PROFILE_DIR),
             "SHELL": os.environ.get("SHELL", "/bin/fish"),
         }
 
@@ -289,7 +291,7 @@ class TaskPacketBuilder:
             'gmail': ['gmail', 'email'],
             'vscode': ['vscode', 'code', 'editor'],
             'terminal': ['terminal', 'bash', 'shell'],
-            'firefox': ['firefox', 'browser'],
+            'brave': ['brave', 'browser'],
         }
 
         intent_lower = intent.lower()

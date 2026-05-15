@@ -97,7 +97,7 @@ from memory import ContextCompiler
 # Agent-focused context (their memory type only)
 executor_context = ContextCompiler.compile_agent_context(
     agent_name="executor",
-    query="Open Firefox and navigate to example.com",
+    query="Open Brave and navigate to example.com",
     memory_type="recent"
 )
 ```

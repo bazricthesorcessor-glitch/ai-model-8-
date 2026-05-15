@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Hyprland AI Agent Daemon
+Elzyra Hyprland desktop agent daemon.
 Runs as a background service with socket-based command interface
 """
 
@@ -9,20 +9,51 @@ import json
 import threading
 import logging
 import time
+import importlib.util
+import sys
 from pathlib import Path
-from hyprland_ai_agent import OllamaAgent, SystemMonitor
+
+try:
+    from .agent_config import LOG_FILE, SOCKET_FILE as CONFIG_SOCKET_FILE
+except ImportError:
+    from agent_config import LOG_FILE, SOCKET_FILE as CONFIG_SOCKET_FILE
+
+
+def _load_agent_impl():
+    """Load the Hyprland implementation from the repo's os/ directory."""
+    impl_path = Path(__file__).resolve().parents[1] / "os" / "hyprland_ai_agent.py"
+    spec = importlib.util.spec_from_file_location("elzyra_hyprland_agent", impl_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load agent implementation from {impl_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+_agent_impl = _load_agent_impl()
+OllamaAgent = _agent_impl.OllamaAgent
+SystemMonitor = _agent_impl.SystemMonitor
+
+
+def _logging_handlers():
+    """Build logging handlers, falling back to stderr if log dir is unavailable."""
+    log_path = Path(LOG_FILE).expanduser()
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        return [logging.FileHandler(log_path), logging.StreamHandler()]
+    except OSError:
+        return [logging.StreamHandler()]
+
 
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(Path.home() / '.local/share/hyprland-agent/agent.log'),
-        logging.StreamHandler()
-    ]
+    handlers=_logging_handlers(),
 )
 logger = logging.getLogger(__name__)
 
-SOCKET_FILE = Path.home() / '.local/run/hyprland-agent.sock'
+SOCKET_FILE = Path(CONFIG_SOCKET_FILE).expanduser()
 
 
 class AgentDaemon:
@@ -40,7 +71,7 @@ class AgentDaemon:
         if self.socket_file.exists():
             self.socket_file.unlink()
 
-        logger.info("Hyprland AI Agent Daemon initialized")
+        logger.info("Elzyra Hyprland desktop agent daemon initialized")
 
     def start(self):
         """Start daemon"""

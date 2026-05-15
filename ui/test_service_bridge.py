@@ -14,6 +14,57 @@ from router import dispatch
 
 # Import UI module to trigger service registration
 import ui
+import ui.service as ui_service_module
+
+
+class FakeTabsManager:
+    def __init__(self):
+        self.calls = []
+
+    def list_tabs(self):
+        self.calls.append(("list_tabs", None))
+        return {
+            "success": True,
+            "tabs": [
+                {
+                    "id": "tab-1",
+                    "type": "page",
+                    "url": "https://chat.openai.com/",
+                    "title": "ChatGPT",
+                }
+            ],
+            "count": 1,
+        }
+
+    def activate_tab(self, tab_id):
+        self.calls.append(("activate_tab", tab_id))
+        return {"success": True, "action": "activated", "tab_id": tab_id}
+
+    def open_tab(self, url):
+        self.calls.append(("open_tab", url))
+        return {"success": True, "action": "opened", "url": url, "tab_id": "tab-2"}
+
+    def focus_provider(self, provider):
+        self.calls.append(("focus_provider", provider))
+        return {"success": True, "provider": provider, "action": "focused"}
+
+    def list_providers(self):
+        self.calls.append(("list_providers", None))
+        return {"success": True, "providers": ["chatgpt"], "count": 1}
+
+    def get_current_provider(self):
+        self.calls.append(("get_current_provider", None))
+        return {"success": True, "provider": "chatgpt"}
+
+    def detect_provider_tab(self, window_title):
+        self.calls.append(("detect_provider_tab", window_title))
+        return "chatgpt" if "chatgpt" in window_title.lower() else None
+
+
+def install_fake_tabs_manager():
+    fake = FakeTabsManager()
+    ui_service_module._ai_tabs_manager = fake
+    return fake
 
 
 def test_ui_list_providers():
@@ -47,6 +98,71 @@ def test_ui_list_providers():
         print(f"  Error: {result.error}")
         print(f"\n✗ FAIL")
         return False
+
+
+def test_ui_browser_tab_primitives():
+    """Test: Brave/CDP browser primitives are exposed through router."""
+    print("\n" + "=" * 70)
+    print("TEST: browser tab primitives via router")
+    print("=" * 70)
+
+    fake = install_fake_tabs_manager()
+
+    messages = [
+        (
+            "list_tabs",
+            {},
+            lambda result: result.result.get("count") == 1,
+        ),
+        (
+            "activate_tab",
+            {"tab_id": "tab-1"},
+            lambda result: result.result.get("tab_id") == "tab-1",
+        ),
+        (
+            "open_tab",
+            {"url": "https://example.com"},
+            lambda result: result.result.get("url") == "https://example.com",
+        ),
+        (
+            "focus_provider",
+            {"provider": "chatgpt"},
+            lambda result: result.result.get("provider") == "chatgpt",
+        ),
+    ]
+
+    for action, data, assertion in messages:
+        message = Message(
+            source="test",
+            target="ui",
+            action="dispatch_tool",
+            payload={
+                "action": action,
+                "data": data,
+            },
+        )
+
+        print(f"\nDispatching: {action}")
+        result = dispatch(message)
+        print(f"  Success: {result.success}")
+        print(f"  Error: {result.error}")
+
+        if not result.success or not assertion(result):
+            print(f"\n✗ FAIL: {action}")
+            return False
+
+    expected_calls = [
+        ("list_tabs", None),
+        ("activate_tab", "tab-1"),
+        ("open_tab", "https://example.com"),
+        ("focus_provider", "chatgpt"),
+    ]
+    if fake.calls != expected_calls:
+        print(f"\n✗ FAIL: expected calls {expected_calls}, got {fake.calls}")
+        return False
+
+    print(f"\n✓ PASS: browser primitives routed")
+    return True
 
 
 def test_ui_focus_provider():
@@ -121,6 +237,7 @@ def main():
 
     tests = [
         ("List Providers", test_ui_list_providers),
+        ("Browser Tab Primitives", test_ui_browser_tab_primitives),
         ("Focus Provider", test_ui_focus_provider),
         ("Unknown Action", test_ui_unknown_action),
     ]

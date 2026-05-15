@@ -2,7 +2,7 @@
 
 ````md
 # EXECUTOR MEMORY ARCHITECTURE
-## Avril Cognitive System — Llama 3.1 8B Executor
+## Elzyra Cognitive System — Llama 3.1 8B Executor
 
 Version: 1.0  
 Role: Silent Operational Cortex  
@@ -12,7 +12,7 @@ Owner: Scout
 
 # IDENTITY
 
-The Executor is NOT Avril.
+The Executor is NOT Elzyra.
 
 The Executor is:
 - operational
@@ -154,7 +154,7 @@ Example:
 
 ```yaml
 TODO:
-  - open firefox
+  - open brave
   - open github repo
   - verify page loaded
 ````
@@ -175,7 +175,7 @@ Example:
 ACTIVE_TASK:
   id: 441
   type: ui_action
-  action: open_firefox
+  action: open_brave
 
 STATUS:
   executing
@@ -200,7 +200,7 @@ Example:
 
 ```yaml
 COMPLETED:
-  - firefox_opened
+  - brave_opened
   - github_loaded
   - terminal_focused
 ```
@@ -257,8 +257,8 @@ Example:
 {
   "shell": "fish",
   "cwd": "/home/dmannu/ai-model-8",
-  "venv": "/mnt/D/venvs/avril-main",
-  "python": "/mnt/D/venvs/avril-main/bin/python",
+  "venv": "/mnt/D/venvs/elzyra-main",
+  "python": "/mnt/D/venvs/elzyra-main/bin/python",
 
   "recent_commands": [
     "git push",
@@ -337,7 +337,7 @@ CAELESTIA_CONFIG:
   ~/.config/caelestia/shell.json
 
 MAIN_VENV:
-  /mnt/D/venvs/avril-main
+  /mnt/D/venvs/elzyra-main
 ```
 
 Executor understands:
@@ -420,7 +420,7 @@ Contains:
 Example:
 
 ```yaml
-active_window: firefox
+active_window: brave
 
 visible_elements:
   - github_tab
@@ -568,7 +568,7 @@ Example:
 
 ```yaml
 issue:
-  firefox_not_opening
+  brave_not_opening
 
 possible_causes:
   - already_running
@@ -605,10 +605,10 @@ Example:
 
 ```yaml
 TASK:
-  open firefox
+  open brave
 
 VERIFY:
-  firefox_window_visible
+  brave_window_visible
 ```
 
 Without verification:
@@ -624,7 +624,7 @@ Example:
 
 ```yaml
 workflow:
-  start_avril_stack
+  start_elzyra_stack
 
 steps:
   - activate_venv
@@ -732,7 +732,7 @@ precise
 interruptible
 deterministic
 
-A silent operational subsystem inside Avril.
+A silent operational subsystem inside Elzyra.
 
 ```
 ```

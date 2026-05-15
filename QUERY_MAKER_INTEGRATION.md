@@ -346,7 +346,7 @@ from memory import ContextCompiler
 
 context = ContextCompiler.compile_agent_context(
     agent_name="executor",
-    query="Open Firefox and go to example.com",
+    query="Open Brave and go to example.com",
     memory_type="recent"
 )
 print(f"Agent context generated: {len(context)} characters")
@@ -367,7 +367,7 @@ llm_result = ScoutContextRouter.route_and_execute(
 
 # Route to agent
 agent_result = ScoutContextRouter.route_and_execute(
-    query="Open Firefox",
+    query="Open Brave",
     target="executor"
 )
 ```

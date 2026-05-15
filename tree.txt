@@ -1,9 +1,13 @@
-hello.
+.
 ├── 2026-05-12_CONTEXT_SEED.md
 ├── agent
 │   ├── agent_cli.py
 │   ├── agent_config.py
-│   └── agent_daemon.py
+│   ├── agent_daemon.py
+│   └── __pycache__
+│       ├── agent_cli.cpython-314.pyc
+│       ├── agent_config.cpython-314.pyc
+│       └── agent_daemon.cpython-314.pyc
 ├── api.py
 ├── api usage.md
 ├── a.py
@@ -41,19 +45,25 @@ hello.
 ├── COMPLETE_SUMMARY.md
 ├── config
 │   ├── ACTUAL_HYPRLAND_ANALYSIS.md
+│   ├── app.py
+│   ├── endpoints.py
 │   ├── HYPRLAND_CONFIG_GUIDE.md
 │   ├── __init__.py
 │   ├── paths.py
 │   ├── __pycache__
+│   │   ├── app.cpython-314.pyc
+│   │   ├── endpoints.cpython-314.pyc
 │   │   ├── __init__.cpython-311.pyc
 │   │   ├── __init__.cpython-314.pyc
 │   │   ├── paths.cpython-314.pyc
 │   │   ├── settings.cpython-311.pyc
-│   │   └── settings.cpython-314.pyc
+│   │   ├── settings.cpython-314.pyc
+│   │   └── test_endpoints.cpython-314.pyc
 │   ├── README.md
 │   ├── settings.py
 │   ├── shell.example.json
-│   └── shell.json
+│   ├── shell.json
+│   └── test_endpoints.py
 ├── CONSOLIDATION_GUIDE.md
 ├── DEPENDENCY_ANALYSIS.md
 ├── DEPENDENCY_DIAGRAMS.md
@@ -145,6 +155,8 @@ hello.
 │   ├── keyboard_shortcuts.py
 │   ├── mouse_gestures.py
 │   ├── os_check.py
+│   ├── __pycache__
+│   │   └── hyprland_ai_agent.cpython-314.pyc
 │   ├── README.md
 │   ├── split_manager.py
 │   └── window_manager.py
@@ -285,16 +297,20 @@ hello.
 │   ├── __pycache__
 │   │   ├── ai_tabs.cpython-314.pyc
 │   │   ├── caelestia_controller.cpython-314.pyc
+│   │   ├── dashboard.cpython-314.pyc
 │   │   ├── __init__.cpython-314.pyc
 │   │   ├── quick_terminal.cpython-314.pyc
 │   │   ├── screenshot_manager.cpython-314.pyc
-│   │   └── service.cpython-314.pyc
+│   │   ├── service.cpython-314.pyc
+│   │   ├── test_ai_tabs.cpython-314.pyc
+│   │   └── test_service_bridge.cpython-314.pyc
 │   ├── quick_terminal_examples.py
 │   ├── QUICK_TERMINAL_GUIDE.md
 │   ├── quick_terminal.py
 │   ├── screenshot_manager.py
 │   ├── service.py
 │   ├── shortcuts.sh
+│   ├── test_ai_tabs.py
 │   └── test_service_bridge.py
 ├── vision
 │   ├── examples.py
@@ -342,6 +358,8 @@ hello.
 │   │   └── __init__.py
 │   ├── extractors
 │   │   ├── __init__.py
+│   │   ├── __pycache__
+│   │   │   └── scrapegraphai_extractor.cpython-314.pyc
 │   │   └── scrapegraphai_extractor.py
 │   ├── README.md
 │   ├── tests
@@ -351,4 +369,4 @@ hello.
 ├── whatsapp
 └── WORKFLOW_STRUCTURE.md
 
-68 directories, 284 files
+71 directories, 299 files

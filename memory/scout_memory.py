@@ -484,7 +484,7 @@ if __name__ == "__main__":
     print("\n[TEST 3] Updating state...")
     state = StateSnapshot(
         timestamp=time.time(),
-        ui_state={"active_window": "Firefox", "workspace": 2},
+        ui_state={"active_window": "Brave", "workspace": 2},
         browser_state={"open_tabs": [{"title": "YouTube"}]},
         workspace_state={"workspace_1": "coding", "workspace_2": "media"},
         agent_state={"executor_busy": False, "scout_busy": True},

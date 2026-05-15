@@ -5,6 +5,7 @@ All system configuration centralized here.
 
 import os
 from datetime import datetime
+from .endpoints import endpoint_of
 
 
 
@@ -23,7 +24,7 @@ LLM_CONFIG = {
     "fast_executor_model": "llama3.2:3b",
     "coding_model": "llama3.2:3b",
     "deep_thinking_model": "gemma4:26b",
-    "ollama_url": "http://localhost:11434/api/generate",
+    "ollama_url": endpoint_of("ollama_generate"),
     "temperature": 0.3,
     "top_p": 0.9,
     "timeout": 120,
@@ -237,4 +238,3 @@ OS_CONFIG = {
     "hyprland_instance_env": "HYPRLAND_INSTANCE_SIGNATURE",
     "reload_command": "hyprctl reload",
 }
-

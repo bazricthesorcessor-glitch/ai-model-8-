@@ -1,4 +1,4 @@
-# AVRIL SYSTEM CONTEXT SEED - 2026-05-12
+# ELZYRA SYSTEM CONTEXT SEED - 2026-05-12
 
 **Generated:** 2026-05-12 14:30:00  
 **System:** Modular AI Assistant Foundation  
@@ -47,7 +47,7 @@
 
 **Key Innovation:** Detects existing resources to prevent duplication
 - "YouTube tab exists → reuse it, don't open new"
-- "Firefox on workspace 2 → switch to it, don't relaunch"
+- "Brave on workspace 2 → switch to it, don't relaunch"
 
 **Structured Context Regions:**
 ```
@@ -154,7 +154,7 @@ InputController.login_form("user", "pass")
 
 ### 4. Scout History Logger - Absolute User History
 **File:** `memory/scout_history_logger.py`
-**Location:** `~/.avril/scout_history.txt`
+**Location:** `~/.elzyra/scout_history.txt`
 
 **Purpose:** Plain text log that grows forever
 
@@ -180,7 +180,7 @@ print(logger.get_file_size())
 
 ### 5. Agent History Logger - Daily Agent Logs
 **File:** `memory/agent_history_logger.py`
-**Location:** `~/.avril/scout_{agent}_{YYYY-MM-DD}.txt`
+**Location:** `~/.elzyra/scout_{agent}_{YYYY-MM-DD}.txt`
 
 **Three Agent Logs (Daily Rotation):**
 1. `scout_executor_2026-05-12.txt` - Scout ↔ Executor
@@ -225,7 +225,7 @@ manager.log_task_execution(
 
 **1. Executor Memory Architecture** (`executor_memory_architecture.md`)
 - Type: project
-- 3-tier Avril system design
+- 3-tier Elzyra system design
 - Executor operations, memory tree structure
 - Keybinds, variables, rules, workflows
 
@@ -243,9 +243,9 @@ manager.log_task_execution(
 
 ## VENV CONFIGURATION
 
-**Active VEnv:** `/mnt/D/venvs/avril-main`  
-**Python:** `/mnt/D/venvs/avril-main/bin/python3`  
-**Shebang:** `#!/mnt/D/venvs/avril-main/bin/python3`
+**Active VEnv:** `/mnt/D/venvs/elzyra-main`  
+**Python:** `/mnt/D/venvs/elzyra-main/bin/python3`  
+**Shebang:** `#!/mnt/D/venvs/elzyra-main/bin/python3`
 
 **Main Script:** `/home/dmannu/ai-model-8/main.py`
 
@@ -259,7 +259,7 @@ manager.log_task_execution(
 
 **Testing:**
 ```bash
-/mnt/D/venvs/avril-main/bin/python3 main.py --mode test --command "what is 2+2"
+/mnt/D/venvs/elzyra-main/bin/python3 main.py --mode test --command "what is 2+2"
 ```
 
 Output shows: `📡 Calling Groq API (llama-3.1-8b-instant)...` → `✓ Groq response received`

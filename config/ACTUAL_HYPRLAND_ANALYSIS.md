@@ -69,7 +69,7 @@ User System:
 - Example variables:
   ```conf
   $terminal = foot
-  $browser = firefox
+  $browser = brave
   $editor = code
   
   # Window styling
@@ -252,7 +252,7 @@ gesture = 4, down, dispatcher, exec, systemctl suspend-then-hibernate
 ```conf
 # Apps
 $terminal = foot
-$browser = firefox
+$browser = brave
 $editor = code
 $fileExplorer = dolphin
 

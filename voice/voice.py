@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from enum import Enum
 import subprocess
 import json
+from config import endpoint_of
 
 
 class VoiceBackend(Enum):
@@ -128,7 +129,7 @@ class VoiceTransformer:
 
             try:
                 response = requests.post(
-                    "http://localhost:11434/api/transcribe",
+                    f"{endpoint_of('ollama')}/api/transcribe",
                     json={
                         "model": "whisper:base",
                         "language": language,

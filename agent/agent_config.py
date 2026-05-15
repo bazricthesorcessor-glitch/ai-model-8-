@@ -1,15 +1,24 @@
 """
-Configuration for Hyprland AI Agent
+Configuration for Elzyra's Hyprland desktop agent.
 """
 
+import sys
+from pathlib import Path
+
+PROJECT_DIR = Path(__file__).resolve().parents[1]
+if str(PROJECT_DIR) not in sys.path:
+    sys.path.insert(0, str(PROJECT_DIR))
+
+from config import endpoint_of
+
 # Ollama Configuration
-OLLAMA_URL = "http://localhost:11434"
+OLLAMA_URL = endpoint_of("ollama")
 OLLAMA_MODEL = "mildl"  # Change this to your Mildl model name
 OLLAMA_TIMEOUT = 30  # seconds
 
 # System paths
-SOCKET_FILE = "~/.local/run/hyprland-agent.sock"
-LOG_FILE = "~/.local/share/hyprland-agent/agent.log"
+SOCKET_FILE = "~/.local/run/elzyra-agent.sock"
+LOG_FILE = "~/.local/share/elzyra/agent.log"
 
 # Audio settings
 AUDIO_BACKEND = "pulseaudio"  # or "alsa", "pipewire"

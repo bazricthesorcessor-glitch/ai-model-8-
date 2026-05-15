@@ -60,10 +60,10 @@ This example demonstrates the complete workflow:
 
 Usage:
     qt = QuickTerminal()
-    qt.send_screenshot_to_chatgpt()
+    qt.paste_screenshot_into_chatgpt()
 
 The workflow handles:
-  - Auto-detection of Firefox
+  - Auto-detection of Brave
   - Reusing existing ChatGPT tabs
   - Image copying to clipboard
   - Automatic pasting
@@ -72,7 +72,7 @@ The workflow handles:
 
     # Uncomment to actually run (requires browser interaction)
     # qt = QuickTerminal()
-    # result = qt.send_screenshot_to_chatgpt()
+    # result = qt.paste_screenshot_into_chatgpt()
 
 
 def example_brightness():
@@ -228,7 +228,7 @@ Terminal: ss-chat
 Automated steps:
   1. Takes screenshot of entire screen
   2. Copies image to clipboard automatically
-  3. Detects Firefox (opens if needed)
+  3. Detects Brave (opens if needed)
   4. Finds ChatGPT tab (opens new if needed)
   5. Pastes screenshot (Ctrl+V)
   6. Asks if you want to auto-send
@@ -306,7 +306,7 @@ def example_dependencies():
     deps = """
 All dependencies (Arch Linux):
 ==============================
-sudo pacman -S brightnessctl xclip gnome-screenshot xdotool firefox
+sudo pacman -S brightnessctl xclip gnome-screenshot xdotool brave
 
 Individual packages:
 ====================
@@ -326,14 +326,14 @@ sudo pacman -S imagemagick
 sudo pacman -S xdotool
 
 # Browser
-sudo pacman -S firefox
+sudo pacman -S brave
 
 Verification:
 =============
 which brightnessctl    # Should show path
 which xclip            # Should show path
 which gnome-screenshot # Should show path
-which firefox          # Should show path
+which brave          # Should show path
 """
     print(deps)
 

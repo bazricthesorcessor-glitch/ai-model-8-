@@ -1,6 +1,8 @@
-# Hyprland AI Agent
+# Elzyra
 
-An intelligent AI-powered desktop agent that integrates Ollama's Mildl model with Hyprland window manager to provide voice and text-based control over your Linux desktop.
+Elzyra is a modular AI desktop operating system for Hyprland. Scout, Brain, Router, tools, UI primitives, Observer, Todo, and Memory are separate layers; tools stay small and composable.
+
+Contact: elzyrra@gmail.com
 
 ## Features
 
@@ -41,6 +43,7 @@ An intelligent AI-powered desktop agent that integrates Ollama's Mildl model wit
 
 - **OS**: Linux with Hyprland
 - **Ollama**: Running locally with Mildl model
+- **Browser**: Brave with a dedicated Elzyra profile
 - **Python**: 3.8+
 - **System tools**: pactl, hyprctl, systemctl, free, top
 - **Optional**: nvidia-smi (for NVIDIA GPU) or rocm-smi (for AMD GPU)
@@ -54,7 +57,7 @@ pip3 install -r requirements.txt
 ```
 
 ### 2. Update Config
-Edit `config.py` and set your Ollama model:
+Edit the relevant config and set your Ollama model:
 ```python
 OLLAMA_MODEL = "mildl"
 ```
@@ -70,8 +73,8 @@ Try: `maximize window`, `set volume to 75`, `what time is it`
 ```bash
 chmod +x setup.sh
 ./setup.sh
-systemctl --user start hyprland-ai-agent
-systemctl --user enable hyprland-ai-agent
+systemctl --user start elzyra-agent
+systemctl --user enable elzyra-agent
 ```
 
 ### 5. Use CLI Client
@@ -121,16 +124,22 @@ get_time, get_cpu, get_ram, get_gpu, get_status, get_playing_video
 
 **Daemon won't start:**
 ```bash
-rm -f ~/.local/run/hyprland-agent.sock
-systemctl --user restart hyprland-ai-agent
-journalctl --user -u hyprland-ai-agent -f
+rm -f ~/.local/run/elzyra-agent.sock
+systemctl --user restart elzyra-agent
+journalctl --user -u elzyra-agent -f
 ```
 
 **Ollama not found:**
 ```bash
 # Verify Ollama running
-curl http://localhost:11434/api/tags
+curl http://127.0.0.1:11434/api/tags
 ollama serve
+```
+
+**Launch Elzyra Brave profile manually:**
+```bash
+brave --remote-debugging-port=9222 \
+  --user-data-dir=$HOME/.local/share/elzyra/brave-profile
 ```
 
 **Hyprctl fails:**

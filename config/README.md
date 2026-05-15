@@ -78,7 +78,7 @@ See `HYPRLAND_CONFIG_GUIDE.md` for detailed documentation.
 LLM_CONFIG = {
     "general_model": "llama3.2",        # General purpose LLM
     "code_model": "qwen2.5-coder",      # Code generation LLM
-    "ollama_url": "http://localhost:11434"  # Ollama server URL
+    "ollama_url": "http://127.0.0.1:11434"  # Ollama server URL
 }
 ```
 

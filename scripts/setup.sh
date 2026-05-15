@@ -1,9 +1,13 @@
 #!/bin/bash
-# Setup script for Hyprland AI Agent
+# Setup script for Elzyra desktop agent
 
 set -e
 
-echo "🚀 Setting up Hyprland AI Agent..."
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_DIR="$( cd "$SCRIPT_DIR/.." && pwd )"
+OLLAMA_URL="$(PYTHONPATH="$PROJECT_DIR" python3 -c 'from config import endpoint_of; print(endpoint_of("ollama"))')"
+
+echo "Setting up Elzyra desktop agent..."
 
 # Check dependencies
 echo "Checking dependencies..."
@@ -23,35 +27,37 @@ done
 
 # Create directories
 echo "Creating directories..."
-mkdir -p ~/.local/share/hyprland-agent
+mkdir -p ~/.local/share/elzyra
+mkdir -p ~/.local/share/elzyra/brave-profile
 mkdir -p ~/.local/run
 
 # Install Python dependencies
 echo "Installing Python dependencies..."
-pip3 install -r requirements.txt
+pip3 install -r "$PROJECT_DIR/requirements.txt"
 
 # Check Ollama connection
 echo "Testing Ollama connection..."
-if curl -s http://localhost:11434/api/tags > /dev/null; then
-    echo "✅ Ollama is running"
+if curl -s "$OLLAMA_URL/api/tags" > /dev/null; then
+    echo "Ollama is running"
 else
-    echo "❌ Cannot reach Ollama on localhost:11434"
+    echo "Cannot reach Ollama on $OLLAMA_URL"
     echo "   Make sure Ollama is installed and running: ollama serve"
     exit 1
 fi
 
 # Create systemd service file
 echo "Creating systemd service..."
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-sudo tee /etc/systemd/user/hyprland-ai-agent.service > /dev/null <<EOF
+sudo tee /etc/systemd/user/elzyra-agent.service > /dev/null <<EOF
 [Unit]
-Description=Hyprland AI Agent Daemon
+Description=Elzyra Desktop Agent Daemon
 After=network.target hyprland.desktop
 
 [Service]
 Type=simple
-ExecStart=$SCRIPT_DIR/agent_daemon.py
+WorkingDirectory=$PROJECT_DIR
+Environment="PYTHONPATH=$PROJECT_DIR"
+ExecStart=/usr/bin/env python3 $PROJECT_DIR/agent/agent_daemon.py
 Restart=on-failure
 RestartSec=5
 
@@ -67,12 +73,12 @@ EOF
 systemctl --user daemon-reload
 
 echo ""
-echo "✅ Setup complete!"
+echo "Setup complete!"
 echo ""
 echo "Next steps:"
 echo "1. Update config.py with your model name if needed"
-echo "2. Start daemon: systemctl --user start hyprland-ai-agent"
-echo "3. Enable on boot: systemctl --user enable hyprland-ai-agent"
-echo "4. Check status: systemctl --user status hyprland-ai-agent"
+echo "2. Start daemon: systemctl --user start elzyra-agent"
+echo "3. Enable on boot: systemctl --user enable elzyra-agent"
+echo "4. Check status: systemctl --user status elzyra-agent"
 echo "5. Test: python3 hyprland_ai_agent.py"
 echo ""

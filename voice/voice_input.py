@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Voice input wrapper for Hyprland AI Agent
+Voice input wrapper for Elzyra
 Supports both keyboard and voice (STT) input
 """
 

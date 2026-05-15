@@ -71,7 +71,7 @@ graph_config = {
         "model": "ollama/llama3.2",  # Format: provider/model_name
         "model_tokens": 4096,         # Token window for chunking
         "temperature": 0,             # Extraction determinism
-        "base_url": "http://localhost:11434",  # Optional for local
+        "base_url": "http://127.0.0.1:11434",  # Optional for local
         "rate_limit": {
             "requests_per_second": 5,
             "max_retries": 3
@@ -363,16 +363,16 @@ script = coder.run()
 | **Cost** | LLM API costs (but 10-100x cheaper at scale) |
 | **Accuracy** | 85-95% for structured data, handles variations |
 
-### Why It Matters for AVRIL
+### Why It Matters for ELZYRA
 
-**AVRIL's Use Case Benefits:**
+**ELZYRA's Use Case Benefits:**
 1. **Real Estate Data Complexity**: MLS listings, property databases, and real estate sites constantly change HTML structure. ScrapeGraphAI adapts to layout changes without code updates.
 
 2. **Semi-Structured Content**: Many properties have narrative descriptions mixed with structured data. LLMs excel at extracting semantic meaning from messy HTML.
 
 3. **Multi-Source Aggregation**: Different portals (Zillow, Redfin, local MLS) have completely different structures. A single prompt works across all; traditional scrapers need 10+ separate extractors.
 
-4. **Schema Flexibility**: As AVRIL's data models evolve, simply change the Pydantic schema and prompt—no scraper rewrites.
+4. **Schema Flexibility**: As ELZYRA's data models evolve, simply change the Pydantic schema and prompt—no scraper rewrites.
 
 5. **Local Model Option**: Deploy Ollama locally for privacy and cost savings on bulk extraction (no per-request API costs).
 
@@ -453,7 +453,7 @@ prettify_exec_info(exec_info)  # Formatted output
 
 ## Conclusion
 
-ScrapeGraphAI represents a paradigm shift from rule-based to **semantic-aware extraction**, leveraging LLMs' ability to understand content context. For AVRIL's real estate use case—with diverse sources, evolving HTML structures, and semi-structured data—it offers:
+ScrapeGraphAI represents a paradigm shift from rule-based to **semantic-aware extraction**, leveraging LLMs' ability to understand content context. For ELZYRA's real estate use case—with diverse sources, evolving HTML structures, and semi-structured data—it offers:
 
 - **Faster development** (one graph, multiple sources)
 - **Higher accuracy** (handles variations automatically)

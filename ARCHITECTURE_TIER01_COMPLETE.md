@@ -244,7 +244,7 @@ Step 6: Observer integration
 ✓ All system edges have error handling
 
 
-This is the foundation for Avril to scale beyond simple workflows
+This is the foundation for Elzyra to scale beyond simple workflows
 into complex, observable, debuggable autonomous systems.
 """
 

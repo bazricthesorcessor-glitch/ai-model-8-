@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Hyprland AI Agent - Integrates Ollama AI with Hyprland desktop environment
+Elzyra Hyprland desktop agent - integrates Ollama AI with Hyprland.
 Controls window management, audio, system, and provides system monitoring
 """
 
@@ -12,11 +12,12 @@ from typing import Optional
 import requests
 from dataclasses import dataclass
 import logging
+from config import endpoint_of
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-OLLAMA_URL = "http://localhost:11434"
+OLLAMA_URL = endpoint_of("ollama")
 OLLAMA_MODEL = "mildl"  # Change to your model name
 OLLAMA_ENDPOINT = f"{OLLAMA_URL}/api/generate"
 
@@ -425,7 +426,7 @@ Respond with JSON format:
                 return {"status": "error", "response": f"HTTP {response.status_code}"}
 
         except requests.exceptions.ConnectionError:
-            logger.error("Cannot connect to Ollama. Is it running on localhost:11434?")
+            logger.error(f"Cannot connect to Ollama. Is it running at {OLLAMA_URL}?")
             return {"status": "error", "response": "Cannot connect to Ollama"}
         except Exception as e:
             logger.error(f"Ollama error: {e}")
@@ -543,7 +544,7 @@ def main():
     """Main agent loop"""
     agent = OllamaAgent()
 
-    print("🤖 Hyprland AI Agent Started")
+    print("Elzyra Hyprland desktop agent started")
     print("Commands: 'status' for system state, 'quit' to exit")
     print("Example: 'maximize window', 'set volume to 50', 'what time is it'")
     print("-" * 50)

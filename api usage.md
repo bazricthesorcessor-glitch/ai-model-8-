@@ -1,5 +1,5 @@
 ````md
-# AVRIL GROQ API SETUP
+# ELZYRA GROQ API SETUP
 
 ==================================================
 1. INSTALL REQUIRED PACKAGES
@@ -58,7 +58,7 @@ print(response.choices[0].message.content)
 ```
 
 ==================================================
-6. AVRIL MODEL STACK
+6. ELZYRA MODEL STACK
 ====================
 
 | Model         | Purpose              |

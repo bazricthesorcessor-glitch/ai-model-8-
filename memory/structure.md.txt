@@ -1,4 +1,4 @@
-Alright. Ab actual “perfect Avril memory” design banate hain — not chatbot memory, but a living operating memory system for a 1M context Scout. 🧠
+Alright. Ab actual “perfect Elzyra memory” design banate hain — not chatbot memory, but a living operating memory system for a 1M context Scout. 🧠
 
 Tumhari requirement ko simplify kare toh:
 
@@ -32,7 +32,7 @@ CONTEXT COMPILER
 
 ---
 
-# FINAL AVRIL MEMORY ARCHITECTURE
+# FINAL ELZYRA MEMORY ARCHITECTURE
 
 ```text
 memory/

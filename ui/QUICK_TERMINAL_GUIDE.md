@@ -74,7 +74,7 @@ qt.open_youtube()
 
 # Screenshots
 qt.screenshot_and_copy()
-qt.send_screenshot_to_chatgpt()
+qt.paste_screenshot_into_chatgpt()
 
 # Brightness
 qt.brightness_up()
@@ -92,8 +92,8 @@ qt.open_chatgpt()
 
 """
 1. YOUTUBE OPEN:
-   - Detects if Firefox is running
-   - If not: Starts Firefox with YouTube
+   - Detects if Brave is running
+   - If not: Starts Brave with YouTube
    - If yes: Opens YouTube in new tab
    
 2. SCREENSHOT & COPY:
@@ -124,7 +124,7 @@ qt.open_chatgpt()
 """
 WORKFLOW 1: Quick YouTube
   Terminal: yt
-  Result: YouTube opens in Firefox
+  Result: YouTube opens in Brave
   
 WORKFLOW 2: Share screenshot on ChatGPT
   Terminal: ss-chat
@@ -165,10 +165,10 @@ REQUIRED:
 
 OPTIONAL:
   - xdotool: For better window detection (sudo pacman -S xdotool)
-  - Firefox or Chrome (for browser automation)
+  - Brave or Chrome (for browser automation)
 
 ALL DEPENDENCIES:
-  sudo pacman -S brightnessctl xclip gnome-screenshot xdotool firefox
+  sudo pacman -S brightnessctl xclip gnome-screenshot xdotool brave
 """
 
 # ============================================================================
@@ -177,7 +177,7 @@ ALL DEPENDENCIES:
 
 """
 1. Install dependencies:
-   sudo pacman -S brightnessctl xclip gnome-screenshot xdotool firefox
+   sudo pacman -S brightnessctl xclip gnome-screenshot xdotool brave
 
 2. Add shortcuts to shell config:
    
@@ -215,7 +215,7 @@ ALL DEPENDENCIES:
 EXAMPLE 1: Quick YouTube
   $ yt
   [→] Opening YouTube...
-  [*] Firefox already running, opening YouTube in new tab...
+  [*] Brave already running, opening YouTube in new tab...
   {"success": true, "action": "open_youtube", "url": "https://youtube.com"}
 
 EXAMPLE 2: Screenshot Workflow
@@ -284,7 +284,7 @@ AUTO-SEND IN CHATGPT (Programmatic):
   from ui.quick_terminal import QuickTerminal
   
   qt = QuickTerminal()
-  result = qt.send_screenshot_to_chatgpt()
+  result = qt.paste_screenshot_into_chatgpt()
   # User will be prompted to confirm send
 
 BRIGHTNESS CHANGES (Programmatic):
@@ -314,8 +314,8 @@ BRIGHTNESS CHANGES (Programmatic):
   - X11: sudo pacman -S xclip
   - Wayland: sudo pacman -S wl-clipboard
 
-"Firefox window not found":
-  - Make sure Firefox is installed
+"Brave window not found":
+  - Make sure Brave is installed
   - Install xdotool for better window detection
   - sudo pacman -S xdotool
 
@@ -358,7 +358,7 @@ Traditional way (Manual steps):
   1. Open screenshot tool      (1 sec)
   2. Take screenshot           (2 sec)
   3. Copy image to clipboard   (2 sec)
-  4. Open Firefox              (2 sec)
+  4. Open Brave              (2 sec)
   5. Navigate to ChatGPT       (3 sec)
   6. Click message box         (1 sec)
   7. Paste image (Ctrl+V)      (1 sec)

@@ -7,7 +7,7 @@ Appends every message to a persistent log file with:
 - Context/metadata
 - Clean readability
 
-File: ~/.avril/scout_conversation.log
+File: ~/.local/share/elzyra/scout_conversation.log
 """
 
 import os
@@ -15,13 +15,14 @@ import json
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 from pathlib import Path
+from config import LOCAL_SHARE_DIR
 
 
 class ConversationLogger:
     """Log and retrieve Scout↔User conversations."""
 
     # Default log file location
-    DEFAULT_LOG_DIR = os.path.expanduser("~/.avril")
+    DEFAULT_LOG_DIR = str(LOCAL_SHARE_DIR)
     DEFAULT_LOG_FILE = os.path.join(DEFAULT_LOG_DIR, "scout_conversation.log")
 
     def __init__(self, log_file: Optional[str] = None):
@@ -29,7 +30,7 @@ class ConversationLogger:
         Initialize conversation logger.
 
         Args:
-            log_file: Path to log file (default: ~/.avril/scout_conversation.log)
+            log_file: Path to log file (default: ~/.local/share/elzyra/scout_conversation.log)
         """
         self.log_file = log_file or self.DEFAULT_LOG_FILE
 

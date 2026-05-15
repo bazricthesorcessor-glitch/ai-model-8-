@@ -739,10 +739,19 @@ class BrowserAutomation:
     def navigate(self, url: str) -> Dict[str, Any]:
         """Navigate to URL."""
         try:
-            # Open browser (assumes Firefox/Chrome is available)
-            subprocess.Popen(["firefox", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            from .ai_tabs import AITabsManager
+
+            manager = AITabsManager()
+            result = manager.open_tab(url)
+            if not result["success"] and "unavailable" in result.get("error", "").lower():
+                launch_result = manager.launch_brave()
+                if not launch_result["success"]:
+                    return launch_result
+                time.sleep(2)
+                result = manager.open_tab(url)
+            if not result["success"]:
+                return result
             self.current_url = url
-            time.sleep(3)  # Wait for browser to load
             return {"success": True, "url": url}
         except Exception as e:
             return {"success": False, "error": str(e)}

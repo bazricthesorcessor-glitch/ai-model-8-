@@ -1,4 +1,4 @@
-# AVRIL PERFECT MEMORY — IMPLEMENTATION STEPS 🧠
+# ELZYRA PERFECT MEMORY — IMPLEMENTATION STEPS 🧠
 
 Not “chat history”.
 
@@ -723,4 +723,4 @@ The real power comes from:
 * recursive search
 * dynamic context building
 
-THAT is what makes Avril feel persistent and intelligent.
+THAT is what makes Elzyra feel persistent and intelligent.

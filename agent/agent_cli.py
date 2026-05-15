@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Client for Hyprland AI Agent Daemon
-Sends commands to the background daemon
+Client for the Elzyra Hyprland desktop agent daemon.
 """
 
 import socket
@@ -9,7 +8,12 @@ import json
 import sys
 from pathlib import Path
 
-SOCKET_FILE = Path.home() / '.local/run/hyprland-agent.sock'
+try:
+    from .agent_config import SOCKET_FILE as CONFIG_SOCKET_FILE
+except ImportError:
+    from agent_config import SOCKET_FILE as CONFIG_SOCKET_FILE
+
+SOCKET_FILE = Path(CONFIG_SOCKET_FILE).expanduser()
 
 
 def send_command(command: str, **kwargs) -> dict:
@@ -27,7 +31,7 @@ def send_command(command: str, **kwargs) -> dict:
 
         return json.loads(response)
     except FileNotFoundError:
-        return {"error": "Daemon not running. Start with: systemctl --user start hyprland-ai-agent"}
+        return {"error": "Daemon not running. Start with: systemctl --user start elzyra-agent"}
     except Exception as e:
         return {"error": str(e)}
 

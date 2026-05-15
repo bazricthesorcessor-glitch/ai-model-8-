@@ -100,7 +100,7 @@ LLM settings from `config/settings.py`:
 LLM_CONFIG = {
     "general_model": "llama3.2",
     "code_model": "qwen2.5-coder", 
-    "ollama_url": "http://localhost:11434"
+    "ollama_url": "http://127.0.0.1:11434"
 }
 ```
 
@@ -258,7 +258,7 @@ state.update(result)
 os.chdir("/home/user")
 
 # ❌ Never hardcodes settings
-OLLAMA_URL = "http://localhost:11434"
+OLLAMA_URL = "http://127.0.0.1:11434"
 
 # ✅ Always returns Message for router to dispatch
 return Message(action="execute", steps=[...])

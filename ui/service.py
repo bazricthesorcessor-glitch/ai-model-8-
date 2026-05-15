@@ -52,6 +52,10 @@ def ui_service(message: Message) -> Response:
     - get_latest_screenshot
     - clear_screenshot_buffer
     - copy_screenshot_to_clipboard
+    - launch_brave
+    - list_tabs
+    - activate_tab
+    - open_tab
     - focus_provider
     - list_providers
     - get_current_provider
@@ -128,11 +132,29 @@ def _handle_action(action: str, data: Dict[str, Any]) -> Dict[str, Any]:
     # AI PROVIDER PRIMITIVES
     # ========================================================================
 
+    elif action == "launch_brave":
+        return _ai_tabs_manager.launch_brave()
+
+    elif action == "list_tabs":
+        return _ai_tabs_manager.list_tabs()
+
+    elif action == "activate_tab":
+        tab_id = data.get("tab_id")
+        if not tab_id:
+            return {"success": False, "error": "tab_id required"}
+        return _ai_tabs_manager.activate_tab(tab_id)
+
+    elif action == "open_tab":
+        url = data.get("url")
+        if not url:
+            return {"success": False, "error": "url required"}
+        return _ai_tabs_manager.open_tab(url)
+
     elif action == "focus_provider":
         provider = data.get("provider")
         if not provider:
             return {"success": False, "error": "provider name required"}
-        return _ai_tabs_manager.focus_or_open_provider(provider)
+        return _ai_tabs_manager.focus_provider(provider)
 
     elif action == "list_providers":
         return _ai_tabs_manager.list_providers()
@@ -220,6 +242,10 @@ def _handle_action(action: str, data: Dict[str, Any]) -> Dict[str, Any]:
             "get_latest_screenshot",
             "clear_screenshot_buffer",
             "copy_screenshot_to_clipboard",
+            "launch_brave",
+            "list_tabs",
+            "activate_tab",
+            "open_tab",
             "focus_provider",
             "list_providers",
             "get_current_provider",

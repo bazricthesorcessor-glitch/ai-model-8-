@@ -203,9 +203,9 @@ SCENARIO 3: Scout checks system state
 BEFORE:
 -------
 # State scattered across multiple systems
-state_file1 = load_json("~/.avril/ui_state.json")
-state_file2 = load_json("~/.avril/browser_state.json")
-state_file3 = load_json("~/.avril/workspace_state.json")
+state_file1 = load_json("~/.elzyra/ui_state.json")
+state_file2 = load_json("~/.elzyra/browser_state.json")
+state_file3 = load_json("~/.elzyra/workspace_state.json")
 # No unified view
 
 AFTER:

@@ -121,7 +121,7 @@ Pattern 3: Advanced with Quality Control
       "storage_state": "auth.json" # Cookie/session persistence
   }
 
-CRITICAL FILES FOR AVRIL INTEGRATION
+CRITICAL FILES FOR ELZYRA INTEGRATION
 
 1. abstract_graph.py (L67-280): Model initialization, provider detection
 2. smart_scraper_graph.py (L72-279): Graph construction with configuration variants
@@ -144,7 +144,7 @@ DEPENDENCIES SUMMARY
 - html2text (>=2025.4.15): HTML conversion
 - jsonschema (>=4.25.1): Schema validation
 
-INTEGRATION POINTS FOR AVRIL
+INTEGRATION POINTS FOR ELZYRA
 
 1. Schema Definition: Define PropertyListing, MortgageDetails, etc. as Pydantic models
 2. Prompt Engineering: Natural language extraction instructions for each real estate portal
@@ -173,7 +173,7 @@ COMMAND PATTERNS
 - ollama pull llama3.2  # For local models
 - poetry/uv for development
 
-For AVRIL's real estate aggregation platform, focus on:
+For ELZYRA's real estate aggregation platform, focus on:
 - SmartScraperGraph for individual listings
 - SearchGraph for automated discovery
 - Local Ollama deployment for cost efficiency
