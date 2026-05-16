@@ -4,10 +4,11 @@
 │   ├── agent_cli.py
 │   ├── agent_config.py
 │   ├── agent_daemon.py
-│   └── __pycache__
-│       ├── agent_cli.cpython-314.pyc
-│       ├── agent_config.cpython-314.pyc
-│       └── agent_daemon.cpython-314.pyc
+│   ├── __pycache__
+│   │   ├── agent_cli.cpython-314.pyc
+│   │   ├── agent_config.cpython-314.pyc
+│   │   └── agent_daemon.cpython-314.pyc
+│   └── README.md
 ├── api.py
 ├── api usage.md
 ├── a.py
@@ -40,7 +41,6 @@
 │   └── test_supervisor.py
 ├── CAELESTIA_DOCUMENTATION.md
 ├── CLEANUP_CHECKLIST.md
-├── codebase_full.txt
 ├── codebase.txt
 ├── COMPLETE_SUMMARY.md
 ├── config
@@ -58,12 +58,14 @@
 │   │   ├── paths.cpython-314.pyc
 │   │   ├── settings.cpython-311.pyc
 │   │   ├── settings.cpython-314.pyc
-│   │   └── test_endpoints.cpython-314.pyc
+│   │   ├── test_endpoints.cpython-314.pyc
+│   │   └── workspaces.cpython-314.pyc
 │   ├── README.md
 │   ├── settings.py
 │   ├── shell.example.json
 │   ├── shell.json
-│   └── test_endpoints.py
+│   ├── test_endpoints.py
+│   └── workspaces.py
 ├── CONSOLIDATION_GUIDE.md
 ├── DEPENDENCY_ANALYSIS.md
 ├── DEPENDENCY_DIAGRAMS.md
@@ -90,29 +92,45 @@
 │   ├── core.py
 │   ├── data
 │   │   ├── active
-│   │   │   └── daily_logs
-│   │   │       └── 2026-05-12.jsonl
+│   │   │   ├── daily_logs
+│   │   │   │   ├── 2026-05-12.jsonl
+│   │   │   │   └── README.md
+│   │   │   └── README.md
 │   │   ├── agents
+│   │   │   └── README.md
 │   │   ├── archive
 │   │   │   ├── conversations
+│   │   │   │   └── README.md
 │   │   │   ├── failures
+│   │   │   │   └── README.md
 │   │   │   ├── projects
+│   │   │   │   └── README.md
+│   │   │   ├── README.md
 │   │   │   ├── semantic
+│   │   │   │   └── README.md
 │   │   │   └── sessions
+│   │   │       └── README.md
 │   │   ├── identity
 │   │   │   ├── important_memory.json
+│   │   │   ├── README.md
 │   │   │   └── user_preferences.json
 │   │   ├── indexes
+│   │   │   └── README.md
+│   │   ├── README.md
 │   │   ├── semantic
-│   │   │   └── keyword_index.json
+│   │   │   ├── keyword_index.json
+│   │   │   └── README.md
 │   │   ├── state
 │   │   │   ├── agents_state.json
-│   │   │   └── current_state.json
+│   │   │   ├── current_state.json
+│   │   │   └── README.md
 │   │   ├── temporary
 │   │   │   ├── deadlines.json
 │   │   │   ├── events.json
-│   │   │   └── exams.json
+│   │   │   ├── exams.json
+│   │   │   └── README.md
 │   │   └── tools
+│   │       ├── README.md
 │   │       └── registry.json
 │   ├── executermemorydesign.md
 │   ├── __init__.py
@@ -139,8 +157,6 @@
 │   ├── scout_memory_manager.py
 │   ├── scout_memory.py
 │   ├── search.py
-│   ├── steps.md.txt
-│   ├── structure.md.txt
 │   ├── test_memory.py
 │   ├── unified_memory.py
 │   └── writer.py
@@ -156,7 +172,8 @@
 │   ├── mouse_gestures.py
 │   ├── os_check.py
 │   ├── __pycache__
-│   │   └── hyprland_ai_agent.cpython-314.pyc
+│   │   ├── hyprland_ai_agent.cpython-314.pyc
+│   │   └── hyprland.cpython-314.pyc
 │   ├── README.md
 │   ├── split_manager.py
 │   └── window_manager.py
@@ -187,14 +204,14 @@
 │   ├── routing_config.py
 │   └── test_router.py
 ├── scout
+│   ├── README.md
 │   └── scout_context_router.py
 ├── SCOUT_MEMORY_DOCUMENTATION.md
 ├── SCOUT_MEMORY_SYSTEM.md
 ├── scrapegraphai_detailed_analysis.md
-├── scrapegraphai_executive_summary.txt
-├── scrapegraphai_repository_index.txt
 ├── scripts
 │   ├── check_installation.sh
+│   ├── README.md
 │   └── setup.sh
 ├── state
 │   ├── __init__.py
@@ -215,6 +232,7 @@
 │   └── test_terminal.py
 ├── test.py
 ├── tests
+│   ├── README.md
 │   └── test_integration.py
 ├── todo
 │   ├── __init__.py
@@ -222,14 +240,16 @@
 │   │   ├── __init__.cpython-314.pyc
 │   │   ├── schemas.cpython-314.pyc
 │   │   └── todo.cpython-314.pyc
+│   ├── README.md
 │   ├── schemas.py
 │   └── todo.py
 ├── tools
 │   ├── browser
 │   │   ├── __init__.py
-│   │   └── __pycache__
-│   │       ├── __init__.cpython-311.pyc
-│   │       └── __init__.cpython-314.pyc
+│   │   ├── __pycache__
+│   │   │   ├── __init__.cpython-311.pyc
+│   │   │   └── __init__.cpython-314.pyc
+│   │   └── README.md
 │   ├── CAELESTIA_COMMAND_REFERENCE.md
 │   ├── caelestia_examples.py
 │   ├── CAELESTIA_INTEGRATION_GUIDE.md
@@ -238,21 +258,24 @@
 │   ├── __init__.py
 │   ├── keyboard
 │   │   ├── __init__.py
-│   │   └── __pycache__
-│   │       ├── __init__.cpython-311.pyc
-│   │       └── __init__.cpython-314.pyc
+│   │   ├── __pycache__
+│   │   │   ├── __init__.cpython-311.pyc
+│   │   │   └── __init__.cpython-314.pyc
+│   │   └── README.md
 │   ├── knowledge_router.py
 │   ├── mouse
 │   │   ├── __init__.py
-│   │   └── __pycache__
-│   │       ├── __init__.cpython-311.pyc
-│   │       └── __init__.cpython-314.pyc
+│   │   ├── __pycache__
+│   │   │   ├── __init__.cpython-311.pyc
+│   │   │   └── __init__.cpython-314.pyc
+│   │   └── README.md
 │   ├── __pycache__
 │   │   ├── caelestia.cpython-314.pyc
 │   │   ├── __init__.cpython-311.pyc
 │   │   ├── __init__.cpython-314.pyc
 │   │   ├── knowledge_router.cpython-311.pyc
 │   │   ├── knowledge_router.cpython-314.pyc
+│   │   ├── query_maker1.cpython-314.pyc
 │   │   ├── registry.cpython-311.pyc
 │   │   ├── registry.cpython-314.pyc
 │   │   ├── schemas.cpython-311.pyc
@@ -268,23 +291,26 @@
 │   ├── service.py
 │   ├── system
 │   │   ├── __init__.py
-│   │   └── __pycache__
-│   │       ├── __init__.cpython-311.pyc
-│   │       └── __init__.cpython-314.pyc
+│   │   ├── __pycache__
+│   │   │   ├── __init__.cpython-311.pyc
+│   │   │   └── __init__.cpython-314.pyc
+│   │   └── README.md
 │   ├── test_service_bridge.py
 │   ├── test_tools.py
 │   ├── tool.py
 │   ├── unified_query_maker.py
 │   ├── vision
 │   │   ├── __init__.py
-│   │   └── __pycache__
-│   │       ├── __init__.cpython-311.pyc
-│   │       └── __init__.cpython-314.pyc
+│   │   ├── __pycache__
+│   │   │   ├── __init__.cpython-311.pyc
+│   │   │   └── __init__.cpython-314.pyc
+│   │   └── README.md
 │   └── web
 │       ├── __init__.py
-│       └── __pycache__
-│           ├── __init__.cpython-311.pyc
-│           └── __init__.cpython-314.pyc
+│       ├── __pycache__
+│       │   ├── __init__.cpython-311.pyc
+│       │   └── __init__.cpython-314.pyc
+│       └── README.md
 ├── tree.txt
 ├── ui
 │   ├── ai_tabs.py
@@ -307,6 +333,7 @@
 │   ├── quick_terminal_examples.py
 │   ├── QUICK_TERMINAL_GUIDE.md
 │   ├── quick_terminal.py
+│   ├── README.md
 │   ├── screenshot_manager.py
 │   ├── service.py
 │   ├── shortcuts.sh
@@ -318,6 +345,7 @@
 │   ├── __pycache__
 │   │   ├── __init__.cpython-314.pyc
 │   │   └── vision.cpython-314.pyc
+│   ├── README.md
 │   ├── test_vision.py
 │   └── vision.py
 ├── voice
@@ -326,6 +354,7 @@
 │   ├── __pycache__
 │   │   ├── __init__.cpython-314.pyc
 │   │   └── voice.cpython-314.pyc
+│   ├── README.md
 │   ├── test_voice.py
 │   ├── voice_input.py
 │   └── voice.py
@@ -347,6 +376,7 @@
 │   │   │   ├── smart_interactor.cpython-314.pyc
 │   │   │   ├── web.cpython-311.pyc
 │   │   │   └── web.cpython-314.pyc
+│   │   ├── README.md
 │   │   ├── scraper_backend.py
 │   │   ├── smart_interactor.py
 │   │   ├── test_web.py
@@ -355,18 +385,23 @@
 │   │   ├── README_WEB.md
 │   │   └── WEB_DESIGN.md
 │   ├── examples
-│   │   └── __init__.py
+│   │   ├── __init__.py
+│   │   └── README.md
 │   ├── extractors
 │   │   ├── __init__.py
 │   │   ├── __pycache__
 │   │   │   └── scrapegraphai_extractor.cpython-314.pyc
+│   │   ├── README.md
 │   │   └── scrapegraphai_extractor.py
 │   ├── README.md
 │   ├── tests
-│   │   └── __init__.py
+│   │   ├── __init__.py
+│   │   └── README.md
 │   └── tools
-│       └── __init__.py
+│       ├── __init__.py
+│       └── README.md
 ├── whatsapp
+│   └── README.md
 └── WORKFLOW_STRUCTURE.md
 
-71 directories, 299 files
+71 directories, 334 files

@@ -28,7 +28,6 @@ done
 # Create directories
 echo "Creating directories..."
 mkdir -p ~/.local/share/elzyra
-mkdir -p ~/.local/share/elzyra/brave-profile
 mkdir -p ~/.local/run
 
 # Install Python dependencies

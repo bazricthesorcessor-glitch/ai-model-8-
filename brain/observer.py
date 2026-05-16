@@ -1,6 +1,10 @@
 """
 Observer - verifies step execution against expected results.
 Answers: What happened? Was it expected? Should we continue?
+
+For UI and browser work, the observer should interpret results relative to
+Elzyra-controlled workspaces first. Workspace is the intended isolation
+boundary for browser automation.
 """
 
 from typing import Dict, Any, Optional

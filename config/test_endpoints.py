@@ -9,8 +9,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import (
+    ALLOWED_WORKSPACES,
     APP_NAME,
-    BRAVE_PROFILE_DIR,
     CONTACT_EMAIL,
     ENDPOINTS,
     endpoint_of,
@@ -25,7 +25,7 @@ def test_endpoint_registry_values():
     assert endpoint_of("ollama") == "http://127.0.0.1:11434"
     assert endpoint_of("ollama_generate") == "http://127.0.0.1:11434/api/generate"
     assert ENDPOINTS["brave_cdp"] == endpoint_of("brave_cdp")
-    assert str(BRAVE_PROFILE_DIR).endswith("/.local/share/elzyra/brave-profile")
+    assert ALLOWED_WORKSPACES == [7, 8, 9]
 
 
 def test_unknown_endpoint_raises_clear_error():

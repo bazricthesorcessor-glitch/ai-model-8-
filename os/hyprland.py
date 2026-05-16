@@ -8,7 +8,6 @@ from typing import Dict, Any, Optional, Tuple, List
 from dataclasses import dataclass
 import json
 import os
-import time
 
 
 @dataclass
@@ -97,6 +96,17 @@ class HyprlandManager:
         except Exception as e:
             return False, None, str(e)
 
+    def _execute_hyprctl_json(self, command: str) -> Tuple[bool, Any, Optional[str]]:
+        """Execute hyprctl JSON command."""
+        success, output, error = self._execute_hyprctl(f"-j {command}")
+        if not success:
+            return False, None, error
+
+        try:
+            return True, json.loads(output or "null"), None
+        except json.JSONDecodeError as exc:
+            return False, None, f"Invalid JSON from hyprctl {command}: {exc}"
+
     def dispatch(self, command: str) -> Tuple[bool, str, Optional[str]]:
         """Send dispatch command"""
         return self._execute_hyprctl(f"dispatch {command}")
@@ -107,42 +117,65 @@ class HyprlandManager:
 
     def get_active_window(self) -> Tuple[bool, Optional[Window], Optional[str]]:
         """Get currently active window"""
-        success, output, error = self._execute_hyprctl("activewindow")
+        success, payload, error = self._execute_hyprctl_json("activewindow")
         if not success:
             return False, None, error
 
         try:
-            # Parse output: Window 564fee7d0520 -> CLASS - TITLE
-            parts = output.split(' -> ')
-            if len(parts) >= 2:
-                address = parts[0].replace('Window ', '')
-                detail = parts[1]
-                class_name = detail.split(' - ')[0] if ' - ' in detail else ""
-                title = detail.split(' - ', 1)[1] if ' - ' in detail else detail
+            if not isinstance(payload, dict):
+                return False, None, "Failed to parse active window info"
 
-                window = Window(
-                    address=address,
-                    title=title,
-                    class_name=class_name,
-                    workspace=0,  # Would need additional query
-                    x=0, y=0, width=0, height=0,
-                    floating=False, maximized=False
-                )
-                return True, window, None
+            workspace = payload.get("workspace", {})
+            size = payload.get("size", [0, 0])
+            at = payload.get("at", [0, 0])
+            window = Window(
+                address=str(payload.get("address", "")),
+                title=str(payload.get("title", "")),
+                class_name=str(payload.get("class", "")),
+                workspace=int(workspace.get("id", 0) or 0),
+                x=int(at[0] if len(at) > 0 else 0),
+                y=int(at[1] if len(at) > 1 else 0),
+                width=int(size[0] if len(size) > 0 else 0),
+                height=int(size[1] if len(size) > 1 else 0),
+                floating=bool(payload.get("floating", False)),
+                maximized=bool(payload.get("fullscreen", False)),
+            )
+            return True, window, None
         except Exception as e:
             return False, None, str(e)
 
-        return False, None, "Failed to parse window info"
-
     def list_windows(self) -> Tuple[bool, Optional[List[Window]], Optional[str]]:
         """List all windows"""
-        success, output, error = self._execute_hyprctl("clients")
+        success, payload, error = self._execute_hyprctl_json("clients")
         if not success:
             return False, None, error
 
+        if not isinstance(payload, list):
+            return False, None, "Failed to parse Hyprland clients list"
+
         windows = []
-        # Parse output format
-        return True, windows, None
+        try:
+            for item in payload:
+                workspace = item.get("workspace", {})
+                size = item.get("size", [0, 0])
+                at = item.get("at", [0, 0])
+                windows.append(
+                    Window(
+                        address=str(item.get("address", "")),
+                        title=str(item.get("title", "")),
+                        class_name=str(item.get("class", "")),
+                        workspace=int(workspace.get("id", 0) or 0),
+                        x=int(at[0] if len(at) > 0 else 0),
+                        y=int(at[1] if len(at) > 1 else 0),
+                        width=int(size[0] if len(size) > 0 else 0),
+                        height=int(size[1] if len(size) > 1 else 0),
+                        floating=bool(item.get("floating", False)),
+                        maximized=bool(item.get("fullscreen", False)),
+                    )
+                )
+            return True, windows, None
+        except Exception as exc:
+            return False, None, f"Failed to normalize Hyprland clients: {exc}"
 
     def maximize_window(self) -> Tuple[bool, str, Optional[str]]:
         """Maximize active window"""
@@ -178,27 +211,34 @@ class HyprlandManager:
 
     def get_workspaces(self) -> Tuple[bool, Optional[List[Workspace]], Optional[str]]:
         """Get all workspaces"""
-        success, output, error = self._execute_hyprctl("workspaces")
+        success, payload, error = self._execute_hyprctl_json("workspaces")
         if not success:
             return False, None, error
 
+        if not isinstance(payload, list):
+            return False, None, "Failed to parse Hyprland workspaces list"
+
         workspaces = []
         try:
-            for line in output.split('\n'):
-                if 'workspace ID' in line:
-                    # Parse: workspace ID 1 (name: "1") on monitor DP-1
-                    parts = line.split()
-                    ws_id = int(parts[2])
-                    monitor = parts[-1]
-                    workspaces.append(Workspace(
-                        id=ws_id,
-                        name=str(ws_id),
-                        monitor=monitor,
-                        window_count=0
-                    ))
+            for item in payload:
+                workspaces.append(Workspace(
+                    id=int(item.get("id", 0) or 0),
+                    name=str(item.get("name", item.get("id", ""))),
+                    monitor=str(item.get("monitor", "")),
+                    window_count=int(item.get("windows", 0) or 0),
+                ))
             return True, workspaces, None
         except Exception as e:
             return False, None, str(e)
+
+    def get_active_workspace_id(self) -> Tuple[bool, Optional[int], Optional[str]]:
+        """Get the currently active workspace id."""
+        success, payload, error = self._execute_hyprctl_json("activeworkspace")
+        if not success:
+            return False, None, error
+        if not isinstance(payload, dict):
+            return False, None, "Failed to parse active workspace"
+        return True, int(payload.get("id", 0) or 0), None
 
     def switch_workspace(self, workspace_id: int) -> Tuple[bool, str, Optional[str]]:
         """Switch to workspace"""

@@ -141,8 +141,8 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "DIRECTORIES"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-mkdir -p ~/.local/share/elzyra/brave-profile
-echo -e "${GREEN}✓${NC} Created ~/.local/share/elzyra/brave-profile"
+mkdir -p ~/.local/share/elzyra
+echo -e "${GREEN}✓${NC} Created ~/.local/share/elzyra"
 
 mkdir -p ~/.local/run
 echo -e "${GREEN}✓${NC} Created ~/.local/run"

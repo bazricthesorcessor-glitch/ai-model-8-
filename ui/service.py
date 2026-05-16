@@ -60,6 +60,9 @@ def ui_service(message: Message) -> Response:
     - list_providers
     - get_current_provider
 
+    Browser primitives respect Elzyra workspace boundaries. They should avoid
+    unrelated user workspaces unless a caller explicitly requests broader scope.
+
     Args:
         message: Router Message
 

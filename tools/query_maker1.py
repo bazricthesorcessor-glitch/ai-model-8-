@@ -28,7 +28,7 @@ import re
 import json
 import subprocess
 import os
-from config import BRAVE_PROFILE_DIR
+from config import ALLOWED_WORKSPACES
 
 
 class StateGatherer:
@@ -112,6 +112,8 @@ class StateGatherer:
                 "3": "vscode",
             },
             "total_workspaces": 5,
+            "elzyrra_allowed_workspaces": ALLOWED_WORKSPACES,
+            "workspace_boundary": "hyprland_workspace",
         }
 
     @staticmethod
@@ -139,8 +141,8 @@ class StateGatherer:
             "CAELESTIA_CONFIG": os.path.expanduser("~/.config/caelestia/shell.json"),
             "MAIN_VENV": os.environ.get("VIRTUAL_ENV", ""),
             "PYTHON": os.environ.get("PYTHON", "python3"),
-            "BRAVE_PROFILE_DIR": str(BRAVE_PROFILE_DIR),
             "SHELL": os.environ.get("SHELL", "/bin/fish"),
+            "ELZYRRA_ALLOWED_WORKSPACES": ",".join(str(workspace) for workspace in ALLOWED_WORKSPACES),
         }
 
     @staticmethod
@@ -149,6 +151,7 @@ class StateGatherer:
         return [
             {"rule": "NEVER_DUPLICATE_TABS", "reason": "Prevents tab spam", "action": "Reuse existing tabs"},
             {"rule": "REUSE_EXISTING_APPS", "reason": "Preserves workflow", "action": "Switch to existing workspace"},
+            {"rule": "BROWSER_WITHIN_ALLOWED_WORKSPACES", "reason": "Protects unrelated user workflow", "action": "Keep Brave operations inside Elzyra workspaces"},
             {"rule": "RESPECT_LOADING_STATE", "reason": "Prevents race conditions", "action": "Wait for page load"},
             {"rule": "USE_KEYBINDS_FIRST", "reason": "Faster than navigation", "action": "Prefer hotkeys"},
             {"rule": "VERIFY_AFTER_ACTION", "reason": "Prevents hallucination", "action": "Check result"},

@@ -23,10 +23,17 @@ from .app import (
     LOCAL_SHARE_DIR,
     CACHE_DIR,
     LOG_DIR,
-    BRAVE_PROFILE_DIR,
     ensure_runtime_dirs,
 )
 from .endpoints import ENDPOINTS, endpoint_of
+from .workspaces import (
+    ALLOWED_WORKSPACES,
+    WORKSPACE_REGISTRY,
+    get_available_workspace,
+    get_workspace_name,
+    get_workspace_priority_order,
+    is_allowed_workspace,
+)
 
 __all__ = [
     "APP_NAME",
@@ -36,10 +43,15 @@ __all__ = [
     "LOCAL_SHARE_DIR",
     "CACHE_DIR",
     "LOG_DIR",
-    "BRAVE_PROFILE_DIR",
     "ensure_runtime_dirs",
     "ENDPOINTS",
     "endpoint_of",
+    "ALLOWED_WORKSPACES",
+    "WORKSPACE_REGISTRY",
+    "get_available_workspace",
+    "get_workspace_name",
+    "get_workspace_priority_order",
+    "is_allowed_workspace",
     "LLM_CONFIG",
     "SAFETY_RULES",
     "EXECUTION_CONFIG",
