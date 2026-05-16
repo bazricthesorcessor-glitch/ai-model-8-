@@ -306,6 +306,50 @@ def test_global_memory():
     print("\n✓ TEST 10 PASSED")
 
 
+def test_persistent_pin_and_search():
+    """Test 11: Pinned memory persists into search results."""
+    print("\n" + "=" * 70)
+    print("TEST 11: Pinned Memory And Search")
+    print("=" * 70)
+
+    mem = Memory()
+    mem.clear()
+    mem.start_session("test_persistent_pin_and_search")
+    mem.pin_memory(
+        "Elzyrra uses Brave and the user uses Firefox.",
+        category="browser_policy",
+        tags=["browser", "policy"],
+        priority="critical",
+    )
+
+    result = mem.search_memory("Brave Firefox")
+    assert result["total_matches"] >= 1, "Pinned memory should be searchable"
+    print(f"✓ Search found {result['total_matches']} matches")
+
+    print("\n✓ TEST 11 PASSED")
+
+
+def test_large_context_window():
+    """Test 12: Context window builder supports 10M-token budgets."""
+    print("\n" + "=" * 70)
+    print("TEST 12: Large Context Window")
+    print("=" * 70)
+
+    mem = Memory()
+    mem.clear()
+    mem.start_session("test_large_context_window")
+    mem.record_user_message("Remember the browser policy and long-term task priorities.")
+    mem.pin_memory("Browser policy: Elzyrra uses Brave; user uses Firefox.")
+
+    context = mem.build_context_window("What browser policy applies?")
+    assert context["max_tokens"] == 10_000_000
+    assert context["fits_budget"] is True
+    assert context["payload"]["important_memory"], "Important memory should be present"
+    print(f"✓ Built context window with approx {context['approx_tokens']} tokens")
+
+    print("\n✓ TEST 12 PASSED")
+
+
 def run_all_tests():
     """Run all Memory tests."""
     print("\n" + "=" * 70)
@@ -322,6 +366,8 @@ def run_all_tests():
     print("  8. Snapshots and diffs")
     print("  9. Memory clear")
     print("  10. Global instance")
+    print("  11. Pinned memory search")
+    print("  12. Large context window")
 
     try:
         test_basic_read_write()
@@ -334,6 +380,8 @@ def run_all_tests():
         test_snapshots_and_diffs()
         test_clear()
         test_global_memory()
+        test_persistent_pin_and_search()
+        test_large_context_window()
 
         print("\n" + "=" * 70)
         print("✓ ALL MEMORY TESTS PASSED")

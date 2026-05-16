@@ -135,341 +135,6 @@ print("Pushed to GitHub")
 
 
 ================================================================================
-FILE: main.py
-================================================================================
-
-#!/usr/bin/env python3
-"""
-Integration entry point for the modular AI assistant system.
-Demonstrates complete flow: user input → brain decision → execution → state tracking.
-"""
-
-import sys
-import json
-from datetime import datetime
-from typing import Dict, Any, Tuple
-
-# Core modules
-from router import dispatch, send_to_service
-from router.message import Message, Response
-from brain import analyze_intent, check_safety, generate_action_legacy
-from executor import execute
-from state import get_state as get_system_state, clear_state as clear_system_state
-from memory import MEMORY
-
-
-def print_header(text: str) -> None:
-    """Print formatted header."""
-    print(f"\n{'=' * 60}")
-    print(f"  {text}")
-    print(f"{'=' * 60}\n")
-
-
-def print_section(title: str, content: str = "") -> None:
-    """Print formatted section."""
-    print(f"\n→ {title}")
-    if content:
-        print(f"  {content}")
-
-
-def format_result(data: Dict[str, Any]) -> str:
-    """Format result for display."""
-    return json.dumps(data, indent=2)
-
-
-def get_user_approval(action: Dict[str, Any]) -> bool:
-    """Ask user for approval of action."""
-    print_section("⚠ APPROVAL REQUIRED", f"Action: {action.get('action', 'unknown')}")
-
-    if action.get("steps"):
-        print("  Steps:")
-        for i, step in enumerate(action["steps"], 1):
-            print(f"    {i}. {step.get('tool', 'unknown')} - {step.get('data', {})}")
-
-    response = input("\n  Approve? [y/n]: ").strip().lower()
-    return response == "y"
-
-
-def display_state_summary() -> None:
-    """Display current system state summary."""
-    state = get_system_state()
-
-    if isinstance(state, dict):
-        if state.get("current_action"):
-            print_section(
-                "Current Action",
-                f"{state.get('current_action', 'N/A')}"
-            )
-
-        if state.get("execution_history"):
-            print_section("Recent Execution History")
-            for item in state["execution_history"][-3:]:  # Last 3 items
-                action = item.get('action', 'N/A')
-                result = item.get('result', {})
-                print(f"  → {action}: {result}")
-
-        if state.get("status") != "idle":
-            print_section("System Status", f"Current: {state.get('status', 'N/A')}")
-
-
-def display_memory_info() -> None:
-    """Display memory system info."""
-    memory_state = MEMORY.get_state()
-
-    if memory_state.get("current_task"):
-        task = memory_state["current_task"]
-        print_section("Task Memory", f"{task.get('name', 'N/A')} ({task.get('status', 'N/A')})")
-
-    if memory_state.get("current_status") != "idle":
-        print_section("Memory Status", memory_state.get("current_status", "N/A"))
-
-    if memory_state.get("context"):
-        print_section("Context Keys", str(list(memory_state["context"].keys())))
-
-
-def main_interactive() -> None:
-    """Interactive mode: loop until user quits."""
-    print_header("AI Assistant - Interactive Mode")
-    print("Type your command or ask a question. Type 'exit' to quit, 'status' to see state.\n")
-
-    while True:
-        try:
-            user_input = input("You: ").strip()
-
-            if not user_input:
-                continue
-
-            if user_input.lower() == "exit":
-                print_header("Goodbye")
-                break
-
-            if user_input.lower() == "status":
-                display_state_summary()
-                display_memory_info()
-                continue
-
-            if user_input.lower() == "memory":
-                print(MEMORY.debug_view())
-                continue
-
-            # Process user input through system
-            process_user_input(user_input)
-
-        except KeyboardInterrupt:
-            print("\n\nGoodbye")
-            break
-        except Exception as e:
-            print(f"\n✗ Error: {e}")
-            import traceback
-            traceback.print_exc()
-
-
-def process_user_input(user_input: str) -> Tuple[bool, Dict[str, Any]]:
-    """
-    Process user input through the full system pipeline.
-
-    Returns:
-        (success: bool, result: Dict[str, Any])
-    """
-    print_section("Input", user_input)
-
-    # Step 1: Analyze intent
-    print_section("Step 1: Intent Analysis")
-    intent_result = analyze_intent(user_input)
-    print(f"  Intent: {intent_result.get('intent', 'unknown')}")
-    print(f"  Is Question: {intent_result.get('is_question', False)}")
-
-    # Step 2: Check safety
-    print_section("Step 2: Safety Check")
-    is_safe, severity, reason = check_safety(user_input)
-    print(f"  Safe: {is_safe}")
-    if not is_safe:
-        print(f"  Severity: {severity}")
-        print(f"  Reason: {reason}")
-        if severity == "blocked":
-            print_section("Action", "Command blocked by safety filter")
-            return False, {"error": reason}
-
-        # For warning/confirmation, ask user
-        if severity in ["warning", "confirmation"]:
-            response = input(f"  Continue anyway? [y/n]: ").strip().lower()
-            if response != "y":
-                print_section("Action", "User cancelled")
-                return False, {"cancelled": True}
-
-    # Step 3: Generate action
-    print_section("Step 3: Action Generation")
-    try:
-        action = generate_action_legacy(user_input, MEMORY.get_context())
-        print(f"  Action Type: {action.get('action', 'N/A')}")
-        print(f"  Platform: {action.get('platform', 'N/A')}")
-        print(f"  Mode: {action.get('mode', 'N/A')}")
-
-        if action.get("steps"):
-            print(f"  Steps: {len(action['steps'])}")
-            for i, step in enumerate(action["steps"], 1):
-                print(f"    {i}. {step.get('tool', 'N/A')}")
-    except Exception as e:
-        print(f"  ✗ Failed to generate action: {e}")
-        return False, {"error": str(e)}
-
-    # Step 4: Create message and route
-    print_section("Step 4: Message Routing")
-    try:
-        message = Message(
-            action=action.get("action", "execute"),
-            platform=action.get("platform", "cli"),
-            mode=action.get("mode", "visible"),
-            data=action.get("data", {}),
-            steps=action.get("steps", []),
-            context=action.get("context", {})
-        )
-        print(f"  Message ID: {message.timestamp}")
-        print(f"  Routes to: {message.action} ({message.platform})")
-    except Exception as e:
-        print(f"  ✗ Failed to create message: {e}")
-        return False, {"error": str(e)}
-
-    # Step 5: Execute (with approval if needed)
-    print_section("Step 5: Execution")
-    try:
-        # Check if approval needed
-        from config import EXECUTION_CONFIG
-        if EXECUTION_CONFIG.get("approval_required") and message.mode == "visible":
-            if not get_user_approval(action):
-                print_section("Action", "User denied approval")
-                return False, {"denied": True}
-
-        # Execute via router
-        result = route(message)
-
-        # Display result
-        if isinstance(result, Response):
-            if result.success:
-                print("  ✓ Execution successful")
-                if result.data:
-                    print(f"  Result: {format_result(result.data)}")
-            else:
-                print(f"  ✗ Execution failed: {result.error or 'unknown error'}")
-
-            return result.success, result.to_dict()
-        else:
-            # Handle dict response (fallback)
-            if result.get("success"):
-                print("  ✓ Execution successful")
-                if result.get("data"):
-                    print(f"  Result: {result['data']}")
-            else:
-                print(f"  ✗ Execution failed: {result.get('error', 'unknown error')}")
-
-            return result.get("success", False), result
-
-    except Exception as e:
-        print(f"  ✗ Execution error: {e}")
-        import traceback
-        traceback.print_exc()
-        return False, {"error": str(e)}
-
-
-def main_test_command(command: str) -> None:
-    """Test mode: execute single command."""
-    print_header("AI Assistant - Test Mode")
-    print(f"Command: {command}\n")
-
-    clear_system_state()
-    MEMORY.clear()
-
-    success, result = process_user_input(command)
-
-    print_header("Results")
-    print(f"Success: {success}")
-    print(f"Result: {format_result(result)}")
-
-    print_header("Final State")
-    display_state_summary()
-    display_memory_info()
-
-
-def main_demo() -> None:
-    """Demo mode: run through example scenarios."""
-    print_header("AI Assistant - Demo Mode")
-
-    scenarios = [
-        "list files in /tmp",
-        "create a backup of my documents",
-        "show me the time",
-    ]
-
-    for i, scenario in enumerate(scenarios, 1):
-        print(f"\n{'─' * 60}")
-        print(f"Scenario {i}: {scenario}")
-        print(f"{'─' * 60}")
-
-        clear_system_state()
-        MEMORY.clear()
-
-        success, result = process_user_input(scenario)
-
-        print(f"\n→ Scenario {i} Result: {'✓ Success' if success else '✗ Failed'}")
-
-        if i < len(scenarios):
-            print(f"\n[Continuing to next scenario...]")
-
-
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Modular AI Assistant - Execute tasks via natural language"
-    )
-    parser.add_argument(
-        "--mode",
-        choices=["interactive", "test", "demo"],
-        default="interactive",
-        help="Execution mode"
-    )
-    parser.add_argument(
-        "--command",
-        type=str,
-        help="Command to execute (for test mode)"
-    )
-    parser.add_argument(
-        "--no-memory-init",
-        action="store_true",
-        help="Don't initialize memory on startup"
-    )
-
-    args = parser.parse_args()
-
-    # Initialize memory if not disabled
-    if not args.no_memory_init:
-        MEMORY.update_context({"session_start": datetime.now().isoformat()})
-
-    try:
-        if args.mode == "test":
-            if not args.command:
-                print("Error: --command required for test mode")
-                sys.exit(1)
-            main_test_command(args.command)
-
-        elif args.mode == "demo":
-            main_demo()
-
-        else:  # interactive
-            main_interactive()
-
-    except KeyboardInterrupt:
-        print("\n\nInterrupted by user")
-        sys.exit(0)
-    except Exception as e:
-        print(f"\n✗ Fatal error: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
-
-
-
-================================================================================
 FILE: DEPENDENCY_ANALYSIS.md
 ================================================================================
 
@@ -7762,6 +7427,323 @@ python3 main.py
 
 
 ================================================================================
+FILE: main.py
+================================================================================
+
+#!/usr/bin/env python3
+"""
+Integration entry point for the modular AI assistant system.
+
+This file now includes a dedicated memory self-test path so the runtime memory
+system can be validated independently of the rest of the stack.
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+from datetime import datetime
+from typing import Any, Dict, Tuple
+
+from memory import MEMORY, initialize_memory_system
+
+
+def print_header(text: str) -> None:
+    print(f"\n{'=' * 60}")
+    print(f"  {text}")
+    print(f"{'=' * 60}\n")
+
+
+def print_section(title: str, content: str = "") -> None:
+    print(f"\n→ {title}")
+    if content:
+        print(f"  {content}")
+
+
+def format_result(data: Dict[str, Any]) -> str:
+    return json.dumps(data, indent=2, default=str)
+
+
+def _load_runtime_modules():
+    from brain import analyze_intent, check_safety, generate_action_legacy
+    from router import dispatch
+    from router.message import Message, Response
+    from state import get_state as get_system_state, clear_state as clear_system_state
+
+    return {
+        "analyze_intent": analyze_intent,
+        "check_safety": check_safety,
+        "generate_action_legacy": generate_action_legacy,
+        "dispatch": dispatch,
+        "Message": Message,
+        "Response": Response,
+        "get_system_state": get_system_state,
+        "clear_system_state": clear_system_state,
+    }
+
+
+def get_user_approval(action: Dict[str, Any]) -> bool:
+    print_section("Approval Required", f"Action: {action.get('action', 'unknown')}")
+    if action.get("steps"):
+        print("  Steps:")
+        for i, step in enumerate(action["steps"], 1):
+            print(f"    {i}. {step.get('tool', 'unknown')} - {step.get('data', {})}")
+    response = input("\n  Approve? [y/n]: ").strip().lower()
+    return response == "y"
+
+
+def display_state_summary(runtime_modules: Dict[str, Any]) -> None:
+    state = runtime_modules["get_system_state"]()
+    if isinstance(state, dict):
+        if state.get("current_action"):
+            print_section("Current Action", f"{state.get('current_action', 'N/A')}")
+        if state.get("execution_history"):
+            print_section("Recent Execution History")
+            for item in state["execution_history"][-3:]:
+                print(f"  → {item.get('action', 'N/A')}: {item.get('result', {})}")
+        if state.get("status") != "idle":
+            print_section("System Status", f"Current: {state.get('status', 'N/A')}")
+
+
+def display_memory_info() -> None:
+    memory_state = MEMORY.get_state()
+    if memory_state.get("current_task"):
+        task = memory_state["current_task"]
+        print_section("Task Memory", f"{task.get('name', 'N/A')} ({task.get('status', 'N/A')})")
+    if memory_state.get("current_status") != "idle":
+        print_section("Memory Status", memory_state.get("current_status", "N/A"))
+    if memory_state.get("context"):
+        print_section("Context Keys", str(list(memory_state["context"].keys())))
+    print_section("Memory Stats", format_result(MEMORY.get_stats()))
+
+
+def process_user_input(user_input: str) -> Tuple[bool, Dict[str, Any]]:
+    runtime = _load_runtime_modules()
+
+    print_section("Input", user_input)
+    MEMORY.record_user_message(user_input, tags=["interactive_input"], importance=7)
+
+    print_section("Step 1: Intent Analysis")
+    intent_result = runtime["analyze_intent"](user_input)
+    print(f"  Intent: {intent_result.get('intent', 'unknown')}")
+    print(f"  Is Question: {intent_result.get('is_question', False)}")
+    MEMORY.update_context({"last_intent": intent_result})
+
+    print_section("Step 2: Safety Check")
+    is_safe, severity, reason = runtime["check_safety"](user_input)
+    print(f"  Safe: {is_safe}")
+    if not is_safe:
+        print(f"  Severity: {severity}")
+        print(f"  Reason: {reason}")
+        if severity == "blocked":
+            MEMORY.record_execution_result("safety_check", {"reason": reason}, success=False)
+            return False, {"error": reason}
+        if severity in ["warning", "confirmation"]:
+            response = input(f"  Continue anyway? [y/n]: ").strip().lower()
+            if response != "y":
+                MEMORY.record_execution_result("safety_check", {"reason": "user_cancelled"}, success=False)
+                return False, {"cancelled": True}
+
+    print_section("Step 3: Action Generation")
+    try:
+        action = runtime["generate_action_legacy"](user_input, MEMORY.get_context())
+        print(f"  Action Type: {action.get('action', 'N/A')}")
+        print(f"  Platform: {action.get('platform', 'N/A')}")
+        print(f"  Mode: {action.get('mode', 'N/A')}")
+        MEMORY.update_task({"name": user_input, "status": "planned", "action": action.get("action")})
+    except Exception as exc:
+        MEMORY.record_execution_result("generate_action", {"error": str(exc)}, success=False)
+        return False, {"error": str(exc)}
+
+    print_section("Step 4: Message Routing")
+    try:
+        message = runtime["Message"](
+            source="main",
+            target=action.get("target", "tools"),
+            action="dispatch_tool",
+            payload=action.get("payload", {}),
+            context=action.get("context", {}),
+        )
+        print(f"  Message ID: {message.timestamp}")
+        print(f"  Routes to: {message.target}")
+    except Exception as exc:
+        MEMORY.record_execution_result("build_message", {"error": str(exc)}, success=False)
+        return False, {"error": str(exc)}
+
+    print_section("Step 5: Execution")
+    try:
+        from config import EXECUTION_CONFIG
+
+        approval_required = EXECUTION_CONFIG.get("require_approval", True)
+        if approval_required and action.get("mode") == "visible":
+            if not get_user_approval(action):
+                MEMORY.record_execution_result("approval", {"status": "denied"}, success=False)
+                return False, {"denied": True}
+
+        result = runtime["dispatch"](message)
+        if isinstance(result, runtime["Response"]):
+            MEMORY.record_execution_result(message.target, result.to_dict(), success=result.success)
+            if result.success:
+                return True, result.to_dict()
+            return False, result.to_dict()
+
+        MEMORY.record_execution_result(message.target, result, success=bool(result.get("success")))
+        return bool(result.get("success")), result
+    except Exception as exc:
+        MEMORY.record_execution_result("dispatch", {"error": str(exc)}, success=False)
+        return False, {"error": str(exc)}
+
+
+def main_interactive() -> None:
+    print_header("AI Assistant - Interactive Mode")
+    print("Type your command or ask a question. Type 'exit' to quit, 'status' to see state.\n")
+
+    while True:
+        try:
+            user_input = input("You: ").strip()
+            if not user_input:
+                continue
+            if user_input.lower() == "exit":
+                print_header("Goodbye")
+                break
+            if user_input.lower() == "status":
+                runtime = _load_runtime_modules()
+                display_state_summary(runtime)
+                display_memory_info()
+                continue
+            if user_input.lower() == "memory":
+                print(MEMORY.debug_view())
+                continue
+            process_user_input(user_input)
+        except KeyboardInterrupt:
+            print("\n\nGoodbye")
+            break
+        except Exception as exc:
+            print(f"\n✗ Error: {exc}")
+
+
+def main_test_command(command: str) -> None:
+    print_header("AI Assistant - Test Mode")
+    print(f"Command: {command}\n")
+
+    runtime = _load_runtime_modules()
+    runtime["clear_system_state"]()
+    MEMORY.clear()
+
+    success, result = process_user_input(command)
+    print_header("Results")
+    print(f"Success: {success}")
+    print(f"Result: {format_result(result)}")
+    print_header("Final State")
+    display_state_summary(runtime)
+    display_memory_info()
+
+
+def main_memory_test() -> None:
+    """Deterministic memory-system smoke test."""
+    print_header("Perfect Memory - Self Test")
+    initialize_memory_system()
+    MEMORY.clear()
+    session_id = MEMORY.start_session(
+        session_name="main_memory_test",
+        metadata={"entrypoint": "main.py", "mode": "memory-test"},
+    )
+
+    print_section("Session", session_id)
+
+    MEMORY.set_preferences(
+        {
+            "context_depth": "full",
+            "memory_token_budget": 10_000_000,
+            "preferred_browser": "firefox",
+            "assistant_browser": "brave",
+        }
+    )
+    MEMORY.update_task({"id": "memory-001", "name": "Validate perfect memory", "status": "in_progress"})
+    MEMORY.set_status("executing")
+    MEMORY.record_user_message("Remember that Elzyrra uses Brave and the user uses Firefox.")
+    MEMORY.record_agent_message("scout", "Confirmed browser split and stored it.")
+    MEMORY.pin_memory(
+        "Elzyrra uses Brave. The human user uses Firefox. Keep browser responsibilities separate.",
+        category="browser_policy",
+        tags=["browser", "policy", "important"],
+        priority="critical",
+    )
+    MEMORY.update_context(
+        {
+            "token_budget": 10_000_000,
+            "architecture": "persistent_runtime_memory",
+            "test_mode": True,
+        }
+    )
+    MEMORY.record_execution_result(
+        "memory_self_test",
+        {"step": "setup", "status": "complete"},
+        success=True,
+    )
+
+    search_result = MEMORY.search_memory("Brave Firefox")
+    context_window = MEMORY.build_context_window("What browser policy should Elzyrra follow?")
+    snapshot = MEMORY.save_snapshot()
+    MEMORY.set_status("complete")
+
+    print_section("Memory View")
+    print(MEMORY.debug_view())
+    print_section("Search Result")
+    print(format_result(search_result))
+    print_section("Context Window")
+    print(format_result(context_window))
+    print_section("Snapshot Saved")
+    print(format_result({"snapshot_keys": list(snapshot.keys())}))
+
+    assert MEMORY.get_status() == "complete"
+    assert MEMORY.get_preferences()["memory_token_budget"] == 10_000_000
+    assert search_result["total_matches"] >= 1
+    assert context_window["max_tokens"] == 10_000_000
+    assert context_window["payload"]["important_memory"], "Important memory should not be empty"
+
+    print_header("Memory Test Passed")
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Modular AI Assistant - Execute tasks via natural language")
+    parser.add_argument(
+        "--mode",
+        choices=["interactive", "test", "demo", "memory-test"],
+        default="interactive",
+        help="Execution mode",
+    )
+    parser.add_argument("--command", type=str, help="Command to execute (for test mode)")
+    parser.add_argument("--no-memory-init", action="store_true", help="Don't initialize memory on startup")
+    args = parser.parse_args()
+
+    if not args.no_memory_init:
+        initialize_memory_system()
+        MEMORY.start_session(session_name=f"main_{args.mode}", metadata={"started_at": datetime.now().isoformat()})
+        MEMORY.update_context({"session_start": datetime.now().isoformat()})
+
+    try:
+        if args.mode == "test":
+            if not args.command:
+                print("Error: --command required for test mode")
+                sys.exit(1)
+            main_test_command(args.command)
+        elif args.mode == "demo":
+            print_header("Demo Mode Not Updated")
+            print("Use --mode memory-test to validate the new memory system.")
+        elif args.mode == "memory-test":
+            main_memory_test()
+        else:
+            main_interactive()
+    except AssertionError as exc:
+        print(f"Memory self-test failed: {exc}")
+        sys.exit(1)
+
+
+
+================================================================================
 FILE: router/message.py
 ================================================================================
 
@@ -10332,298 +10314,6 @@ def get_action_log(limit: int = 100) -> List[Dict[str, Any]]:
 
 
 ================================================================================
-FILE: memory/core.py
-================================================================================
-
-"""
-Memory system - lightweight, real-time task state tracking.
-NOT conversation history - only current system state.
-"""
-
-import threading
-from typing import Dict, Any, Optional, List, Callable
-from datetime import datetime
-from copy import deepcopy
-
-
-class Memory:
-    """Lightweight in-memory storage for current task state."""
-
-    VALID_STATUSES = ["idle", "executing", "waiting_approval", "error"]
-
-    def __init__(self):
-        """Initialize empty memory."""
-        self._state = {
-            "current_task": None,
-            "last_action": None,
-            "current_status": "idle",
-            "context": {},
-            "user_preferences": {},
-        }
-        self._lock = threading.RLock()
-        self._change_log = []  # Track last 10 changes
-        self._subscribers = {}  # Field → [callbacks]
-        self._created_at = datetime.now()
-
-    # ========================================================================
-    # READ OPERATIONS (thread-safe, returns copies)
-    # ========================================================================
-
-    def get_state(self) -> Dict[str, Any]:
-        """Get complete memory state as snapshot."""
-        with self._lock:
-            return deepcopy(self._state)
-
-    def get(self, field: str) -> Any:
-        """Get specific field value."""
-        with self._lock:
-            if field not in self._state:
-                raise KeyError(f"Unknown field: {field}")
-            return deepcopy(self._state[field])
-
-    def get_task(self) -> Optional[Dict[str, Any]]:
-        """Get current task."""
-        return self.get("current_task")
-
-    def get_action(self) -> Optional[Dict[str, Any]]:
-        """Get last action."""
-        return self.get("last_action")
-
-    def get_status(self) -> str:
-        """Get current status."""
-        return self.get("current_status")
-
-    def get_context(self) -> Dict[str, Any]:
-        """Get context dict."""
-        return self.get("context")
-
-    def get_preferences(self) -> Dict[str, Any]:
-        """Get user preferences."""
-        return self.get("user_preferences")
-
-    # ========================================================================
-    # WRITE OPERATIONS (atomic, thread-safe)
-    # ========================================================================
-
-    def update_task(self, task: Optional[Dict[str, Any]]) -> None:
-        """Update current task (atomic)."""
-        with self._lock:
-            old_value = self._state["current_task"]
-            self._state["current_task"] = deepcopy(task) if task else None
-            self._record_change("current_task", old_value, self._state["current_task"])
-            self._notify_subscribers("current_task", self._state["current_task"])
-
-    def update_action(self, action: Optional[Dict[str, Any]]) -> None:
-        """Update last action (atomic)."""
-        with self._lock:
-            old_value = self._state["last_action"]
-            self._state["last_action"] = deepcopy(action) if action else None
-            self._record_change("last_action", old_value, self._state["last_action"])
-            self._notify_subscribers("last_action", self._state["last_action"])
-
-    def set_status(self, status: str) -> None:
-        """Set current status (atomic)."""
-        if status not in self.VALID_STATUSES:
-            raise ValueError(f"Invalid status: {status}. Must be one of: {self.VALID_STATUSES}")
-
-        with self._lock:
-            old_value = self._state["current_status"]
-            self._state["current_status"] = status
-            self._record_change("current_status", old_value, status)
-            self._notify_subscribers("current_status", status)
-
-    def update_context(self, context: Dict[str, Any]) -> None:
-        """Merge context updates (merges, doesn't overwrite)."""
-        if not isinstance(context, dict):
-            raise TypeError("Context must be a dict")
-
-        with self._lock:
-            old_value = deepcopy(self._state["context"])
-            self._state["context"].update(context)
-            self._record_change("context", old_value, deepcopy(self._state["context"]))
-            self._notify_subscribers("context", deepcopy(self._state["context"]))
-
-    def set_context_value(self, key: str, value: Any) -> None:
-        """Set single context value."""
-        self.update_context({key: value})
-
-    def set_preferences(self, prefs: Dict[str, Any]) -> None:
-        """Update user preferences (merges)."""
-        if not isinstance(prefs, dict):
-            raise TypeError("Preferences must be a dict")
-
-        with self._lock:
-            old_value = deepcopy(self._state["user_preferences"])
-            self._state["user_preferences"].update(prefs)
-            self._record_change("user_preferences", old_value, deepcopy(self._state["user_preferences"]))
-            self._notify_subscribers("user_preferences", deepcopy(self._state["user_preferences"]))
-
-    def set_preference(self, key: str, value: Any) -> None:
-        """Set single preference."""
-        self.set_preferences({key: value})
-
-    # ========================================================================
-    # DEBUGGING
-    # ========================================================================
-
-    def get_change_log(self) -> List[Dict[str, Any]]:
-        """Get last 10 changes for debugging."""
-        with self._lock:
-            return deepcopy(self._change_log)
-
-    def debug_view(self) -> str:
-        """Get formatted debug view of current state."""
-        with self._lock:
-            task = self._state["current_task"]
-            action = self._state["last_action"]
-            status = self._state["current_status"]
-            context = self._state["context"]
-
-            task_str = f"{task.get('name', 'N/A')}" if task else "None"
-            action_str = (
-                f"{action.get('tool', 'N/A')} ({action.get('result', {}).get('duration_ms', 0):.1f}ms)"
-                if action
-                else "None"
-            )
-
-            return f"""
-╔─ Memory State ─────────────────────────╗
-║ Status:        {status:30}║
-║ Task:          {task_str:30}║
-║ Last Action:   {action_str:30}║
-║ Context Keys:  {len(context):30}║
-║ Prefs:         {len(self._state['user_preferences']):30}║
-║ Changes:       {len(self._change_log):30}║
-╚────────────────────────────────────────╝
-"""
-
-    def debug_changes(self) -> str:
-        """Get formatted change log."""
-        with self._lock:
-            if not self._change_log:
-                return "No changes recorded yet."
-
-            lines = ["📝 Change Log (Last 10):"]
-            for i, change in enumerate(self._change_log, 1):
-                timestamp = change["timestamp"].split("T")[1][:8]  # HH:MM:SS
-                field = change["field"]
-                old_val = str(change["old_value"])[:20]
-                new_val = str(change["new_value"])[:20]
-                lines.append(f"{i}. {field}: {old_val} → {new_val} ({timestamp})")
-
-            return "\n".join(lines)
-
-    def debug_field_history(self, field: str) -> str:
-        """Get history of a specific field."""
-        with self._lock:
-            changes = [c for c in self._change_log if c["field"] == field]
-
-            if not changes:
-                return f"No changes for field: {field}"
-
-            lines = [f"📋 History of '{field}':"]
-            for change in changes:
-                timestamp = change["timestamp"].split("T")[1][:8]
-                value = str(change["new_value"])[:30]
-                lines.append(f"  {value} ({timestamp})")
-
-            return "\n".join(lines)
-
-    def get_snapshot(self) -> Dict[str, Any]:
-        """Get state snapshot for comparison."""
-        return self.get_state()
-
-    def debug_diff(self, old_state: Dict[str, Any]) -> str:
-        """Compare current state with old snapshot."""
-        current = self.get_state()
-
-        changed = []
-        unchanged = []
-
-        for key in current.keys():
-            if current[key] != old_state.get(key):
-                changed.append(key)
-            else:
-                unchanged.append(key)
-
-        lines = ["🔄 State Comparison:"]
-        lines.append(f"Changed: {', '.join(changed) if changed else 'None'}")
-        lines.append(f"Unchanged: {', '.join(unchanged) if unchanged else 'None'}")
-
-        return "\n".join(lines)
-
-    # ========================================================================
-    # SUBSCRIBERS (change notifications)
-    # ========================================================================
-
-    def on_change(self, field: str, callback: Callable) -> None:
-        """Subscribe to field changes."""
-        if field not in self._state:
-            raise KeyError(f"Unknown field: {field}")
-
-        if field not in self._subscribers:
-            self._subscribers[field] = []
-
-        self._subscribers[field].append(callback)
-
-    def _notify_subscribers(self, field: str, value: Any) -> None:
-        """Notify all subscribers of field change."""
-        for callback in self._subscribers.get(field, []):
-            try:
-                callback(value)
-            except Exception as e:
-                # Log error but don't raise (don't break execution)
-                pass
-
-    # ========================================================================
-    # HOUSEKEEPING
-    # ========================================================================
-
-    def _record_change(self, field: str, old_value: Any, new_value: Any) -> None:
-        """Record change for debugging (keep last 10)."""
-        change = {
-            "field": field,
-            "old_value": old_value,
-            "new_value": new_value,
-            "timestamp": datetime.now().isoformat(),
-        }
-        self._change_log.append(change)
-
-        # Keep only last 10
-        if len(self._change_log) > 10:
-            self._change_log.pop(0)
-
-    def clear(self) -> None:
-        """Reset memory between sessions."""
-        with self._lock:
-            self._state = {
-                "current_task": None,
-                "last_action": None,
-                "current_status": "idle",
-                "context": {},
-                "user_preferences": {},
-            }
-            self._change_log.clear()
-            self._created_at = datetime.now()
-
-    def get_stats(self) -> Dict[str, Any]:
-        """Get memory statistics."""
-        with self._lock:
-            return {
-                "created_at": self._created_at.isoformat(),
-                "uptime_seconds": (datetime.now() - self._created_at).total_seconds(),
-                "change_log_size": len(self._change_log),
-                "subscribers": {k: len(v) for k, v in self._subscribers.items() if v},
-                "state_size_bytes": len(str(self._state).encode()),
-            }
-
-
-# Global memory instance
-MEMORY = Memory()
-
-
-
-================================================================================
 FILE: memory/test_memory.py
 ================================================================================
 
@@ -10935,6 +10625,50 @@ def test_global_memory():
     print("\n✓ TEST 10 PASSED")
 
 
+def test_persistent_pin_and_search():
+    """Test 11: Pinned memory persists into search results."""
+    print("\n" + "=" * 70)
+    print("TEST 11: Pinned Memory And Search")
+    print("=" * 70)
+
+    mem = Memory()
+    mem.clear()
+    mem.start_session("test_persistent_pin_and_search")
+    mem.pin_memory(
+        "Elzyrra uses Brave and the user uses Firefox.",
+        category="browser_policy",
+        tags=["browser", "policy"],
+        priority="critical",
+    )
+
+    result = mem.search_memory("Brave Firefox")
+    assert result["total_matches"] >= 1, "Pinned memory should be searchable"
+    print(f"✓ Search found {result['total_matches']} matches")
+
+    print("\n✓ TEST 11 PASSED")
+
+
+def test_large_context_window():
+    """Test 12: Context window builder supports 10M-token budgets."""
+    print("\n" + "=" * 70)
+    print("TEST 12: Large Context Window")
+    print("=" * 70)
+
+    mem = Memory()
+    mem.clear()
+    mem.start_session("test_large_context_window")
+    mem.record_user_message("Remember the browser policy and long-term task priorities.")
+    mem.pin_memory("Browser policy: Elzyrra uses Brave; user uses Firefox.")
+
+    context = mem.build_context_window("What browser policy applies?")
+    assert context["max_tokens"] == 10_000_000
+    assert context["fits_budget"] is True
+    assert context["payload"]["important_memory"], "Important memory should be present"
+    print(f"✓ Built context window with approx {context['approx_tokens']} tokens")
+
+    print("\n✓ TEST 12 PASSED")
+
+
 def run_all_tests():
     """Run all Memory tests."""
     print("\n" + "=" * 70)
@@ -10951,6 +10685,8 @@ def run_all_tests():
     print("  8. Snapshots and diffs")
     print("  9. Memory clear")
     print("  10. Global instance")
+    print("  11. Pinned memory search")
+    print("  12. Large context window")
 
     try:
         test_basic_read_write()
@@ -10963,6 +10699,8 @@ def run_all_tests():
         test_snapshots_and_diffs()
         test_clear()
         test_global_memory()
+        test_persistent_pin_and_search()
+        test_large_context_window()
 
         print("\n" + "=" * 70)
         print("✓ ALL MEMORY TESTS PASSED")
@@ -14573,10 +14311,10 @@ class ContextCompiler:
     """Compiles comprehensive context for Scout."""
 
     # ========================================================================
-    # TOKEN ALLOCATION (1M token window)
+    # TOKEN ALLOCATION (10M token window)
     # ========================================================================
-    TOTAL_TOKENS = 1_000_000
-    RESERVED_TOKENS = 100_000  # For response generation
+    TOTAL_TOKENS = 10_000_000
+    RESERVED_TOKENS = 1_000_000  # For response generation
 
     # Default allocation percentages
     TOKEN_ALLOCATION = {
@@ -17585,6 +17323,605 @@ The `memory` package stores assistant context beyond a single call. It contains 
 ## Scope
 
 This folder mixes implementation code and data. Source files define how memory works; `memory/data/` holds the persisted artifacts the system reads and writes.
+
+
+
+================================================================================
+FILE: memory/core.py
+================================================================================
+
+"""
+Runtime memory facade for Elzyra.
+
+This object is the single strong entrypoint used by `main.py` and any module
+that needs memory during execution. It keeps the old lightweight API
+(`update_task`, `set_status`, `get_context`, ...) but adds:
+
+- persistent daily journaling
+- pinned / important memory
+- recall and search helpers
+- large context packing for 10M-token-class windows
+- state snapshots for recovery
+"""
+
+from __future__ import annotations
+
+import threading
+import uuid
+from copy import deepcopy
+from datetime import datetime
+from typing import Any, Callable, Dict, List, Optional
+
+from . import paths
+from .reader import MemoryReader
+from .search import MemorySearch
+from .writer import MemoryWriter, initialize_memory_system
+
+
+class Memory:
+    """Persistent runtime memory with a backward-compatible API."""
+
+    VALID_STATUSES = [
+        "idle",
+        "executing",
+        "waiting_approval",
+        "error",
+        "paused",
+        "complete",
+    ]
+    DEFAULT_CONTEXT_TOKEN_LIMIT = 10_000_000
+    DEFAULT_RECENT_ENTRY_LIMIT = 2_000
+    DEFAULT_ARCHIVE_RESULT_LIMIT = 100
+
+    def __init__(self):
+        initialize_memory_system()
+        self._lock = threading.RLock()
+        self._subscribers: Dict[str, List[Callable]] = {}
+        self._change_log: List[Dict[str, Any]] = []
+        self._created_at = datetime.now()
+        self._search = MemorySearch()
+        self._state = self._build_initial_state()
+        self._hydrate_from_disk()
+
+    # =====================================================================
+    # READ OPERATIONS
+    # =====================================================================
+
+    def get_state(self) -> Dict[str, Any]:
+        """Get a full memory snapshot."""
+        with self._lock:
+            return deepcopy(self._state)
+
+    def get(self, field: str) -> Any:
+        with self._lock:
+            if field not in self._state:
+                raise KeyError(f"Unknown field: {field}")
+            return deepcopy(self._state[field])
+
+    def get_task(self) -> Optional[Dict[str, Any]]:
+        return self.get("current_task")
+
+    def get_action(self) -> Optional[Dict[str, Any]]:
+        return self.get("last_action")
+
+    def get_status(self) -> str:
+        return self.get("current_status")
+
+    def get_context(self) -> Dict[str, Any]:
+        return self.get("context")
+
+    def get_preferences(self) -> Dict[str, Any]:
+        return self.get("user_preferences")
+
+    def get_change_log(self) -> List[Dict[str, Any]]:
+        with self._lock:
+            return deepcopy(self._change_log)
+
+    def get_snapshot(self) -> Dict[str, Any]:
+        return self.get_state()
+
+    # =====================================================================
+    # WRITE OPERATIONS
+    # =====================================================================
+
+    def update_task(self, task: Optional[Dict[str, Any]]) -> None:
+        with self._lock:
+            previous = self._state["current_task"]
+            self._state["current_task"] = deepcopy(task) if task else None
+            self._record_change("current_task", previous, self._state["current_task"])
+            self._notify_subscribers("current_task", self._state["current_task"])
+            self._persist_runtime_state()
+
+        if task:
+            self.remember(
+                speaker="system",
+                message=f"Task updated: {task.get('name') or task.get('id') or 'unnamed task'}",
+                importance=7,
+                tags=["task", "runtime"],
+                category="task",
+                data={"task": deepcopy(task)},
+            )
+
+    def update_action(self, action: Optional[Dict[str, Any]]) -> None:
+        with self._lock:
+            previous = self._state["last_action"]
+            self._state["last_action"] = deepcopy(action) if action else None
+            self._record_change("last_action", previous, self._state["last_action"])
+            self._append_recent_history("action", self._state["last_action"])
+            self._notify_subscribers("last_action", self._state["last_action"])
+            self._persist_runtime_state()
+
+        if action:
+            self.remember(
+                speaker="system",
+                message=f"Action recorded: {action.get('tool', 'unknown')}",
+                importance=6,
+                tags=["action", "runtime"],
+                category="action",
+                data={"action": deepcopy(action)},
+            )
+
+    def set_status(self, status: str) -> None:
+        if status not in self.VALID_STATUSES:
+            raise ValueError(f"Invalid status: {status}. Must be one of: {self.VALID_STATUSES}")
+
+        with self._lock:
+            previous = self._state["current_status"]
+            self._state["current_status"] = status
+            self._record_change("current_status", previous, status)
+            self._notify_subscribers("current_status", status)
+            self._persist_runtime_state()
+
+        self.remember(
+            speaker="system",
+            message=f"Status changed from {previous} to {status}",
+            importance=4,
+            tags=["status", "runtime"],
+            category="state",
+            data={"old_status": previous, "new_status": status},
+        )
+
+    def update_context(self, context: Dict[str, Any]) -> None:
+        if not isinstance(context, dict):
+            raise TypeError("Context must be a dict")
+
+        with self._lock:
+            previous = deepcopy(self._state["context"])
+            self._state["context"].update(deepcopy(context))
+            self._record_change("context", previous, deepcopy(self._state["context"]))
+            self._notify_subscribers("context", deepcopy(self._state["context"]))
+            self._persist_runtime_state()
+
+    def set_context_value(self, key: str, value: Any) -> None:
+        self.update_context({key: value})
+
+    def set_preferences(self, prefs: Dict[str, Any]) -> None:
+        if not isinstance(prefs, dict):
+            raise TypeError("Preferences must be a dict")
+
+        with self._lock:
+            previous = deepcopy(self._state["user_preferences"])
+            self._state["user_preferences"] = deepcopy(prefs)
+            self._record_change("user_preferences", previous, deepcopy(self._state["user_preferences"]))
+            self._notify_subscribers("user_preferences", deepcopy(self._state["user_preferences"]))
+            MemoryWriter.save_user_preferences(self._state["user_preferences"])
+            self._persist_runtime_state()
+
+    def set_preference(self, key: str, value: Any) -> None:
+        current_preferences = self.get_preferences()
+        current_preferences[key] = value
+        self.set_preferences(current_preferences)
+
+    # =====================================================================
+    # PERSISTENT MEMORY OPERATIONS
+    # =====================================================================
+
+    def start_session(self, session_name: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> str:
+        with self._lock:
+            if not self._state["session_id"]:
+                self._state["session_id"] = uuid.uuid4().hex
+            if session_name:
+                self._state["context"]["session_name"] = session_name
+            if metadata:
+                self._state["context"]["session_metadata"] = deepcopy(metadata)
+            self._persist_runtime_state()
+
+        self.remember(
+            speaker="system",
+            message=f"Session started: {session_name or self._state['session_id']}",
+            importance=8,
+            tags=["session", "startup"],
+            category="session",
+            data={"session_id": self._state["session_id"], "metadata": metadata or {}},
+        )
+        return self._state["session_id"]
+
+    def remember(
+        self,
+        message: str,
+        speaker: str = "system",
+        importance: int = 5,
+        tags: Optional[List[str]] = None,
+        category: Optional[str] = None,
+        data: Optional[Dict[str, Any]] = None,
+        severity: str = "info",
+    ) -> Dict[str, Any]:
+        """Persist a memory event and keep it in the runtime working set."""
+        entry = MemoryWriter.create_daily_log_entry(
+            log_type="memory_event",
+            message=message,
+            category=category or "general",
+            data={
+                "speaker": speaker,
+                "importance": max(0, min(10, importance)),
+                "tags": tags or [],
+                "session_id": self._state.get("session_id"),
+                **(data or {}),
+            },
+            severity=severity,
+        )
+        MemoryWriter.log_to_daily(entry)
+
+        with self._lock:
+            self._append_recent_history("memory_event", entry)
+            self._state["metrics"]["memory_events"] += 1
+            self._state["last_memory_event"] = deepcopy(entry)
+            self._persist_runtime_state()
+
+        return entry
+
+    def record_user_message(self, message: str, tags: Optional[List[str]] = None, importance: int = 6) -> Dict[str, Any]:
+        return self.remember(
+            speaker="user",
+            message=message,
+            importance=importance,
+            tags=(tags or []) + ["user_message"],
+            category="conversation",
+        )
+
+    def record_agent_message(
+        self,
+        agent: str,
+        message: str,
+        tags: Optional[List[str]] = None,
+        importance: int = 5,
+    ) -> Dict[str, Any]:
+        return self.remember(
+            speaker=agent,
+            message=message,
+            importance=importance,
+            tags=(tags or []) + ["agent_message"],
+            category="conversation",
+        )
+
+    def record_execution_result(
+        self,
+        action: str,
+        result: Dict[str, Any],
+        success: bool = True,
+    ) -> None:
+        execution = {
+            "action": action,
+            "result": deepcopy(result),
+            "success": success,
+            "session_id": self._state.get("session_id"),
+        }
+        MemoryWriter.log_execution_history(execution)
+        self.remember(
+            speaker="executor",
+            message=f"Execution {'succeeded' if success else 'failed'}: {action}",
+            importance=7 if success else 9,
+            tags=["execution", "result", "success" if success else "failure"],
+            category="execution",
+            data={"execution": execution},
+            severity="info" if success else "error",
+        )
+
+    def pin_memory(
+        self,
+        content: str,
+        category: str = "general",
+        tags: Optional[List[str]] = None,
+        priority: str = "high",
+    ) -> Dict[str, Any]:
+        item = {
+            "content": content,
+            "category": category,
+            "tags": tags or [],
+            "priority": priority,
+        }
+        MemoryWriter.save_important_memory(item)
+        with self._lock:
+            self._state["pinned_memories"] = MemoryReader.load_important_memory().get("items", [])
+            self._state["metrics"]["pinned_memories"] = len(self._state["pinned_memories"])
+            self._persist_runtime_state()
+        return item
+
+    def search_memory(self, query: str, limit: int = 20) -> Dict[str, Any]:
+        daily = self._filter_entries_by_terms(MemoryReader.load_14_day_memory(), query, limit)
+        important = self._filter_entries_by_terms(
+            MemoryReader.load_important_memory().get("items", []),
+            query,
+            limit,
+        )
+        archives = self._filter_entries_by_terms(
+            self._search.search_archives(query=query, limit=limit * 5),
+            query,
+            limit,
+        )
+        return {
+            "query": query,
+            "recent": daily[:limit],
+            "important": important[:limit],
+            "archive": archives[:limit],
+            "total_matches": len(daily) + len(important) + len(archives),
+        }
+
+    def build_context_window(
+        self,
+        query: str,
+        max_tokens: int = DEFAULT_CONTEXT_TOKEN_LIMIT,
+        recent_limit: int = DEFAULT_RECENT_ENTRY_LIMIT,
+        archive_limit: int = DEFAULT_ARCHIVE_RESULT_LIMIT,
+    ) -> Dict[str, Any]:
+        """
+        Build a large context package for downstream reasoning.
+
+        We do not try to exactly tokenize here. We budget by approximate chars,
+        which is enough for packing and testing the 10M-token regime.
+        """
+        important = MemoryReader.load_important_memory().get("items", [])
+        recent = MemoryReader.load_14_day_memory()[:recent_limit]
+        search = self.search_memory(query, limit=archive_limit)
+
+        payload = {
+            "query": query,
+            "session_id": self._state.get("session_id"),
+            "status": self._state.get("current_status"),
+            "task": deepcopy(self._state.get("current_task")),
+            "context": deepcopy(self._state.get("context")),
+            "preferences": deepcopy(self._state.get("user_preferences")),
+            "important_memory": important,
+            "recent_memory": recent,
+            "relevant_archive": search["archive"],
+        }
+
+        approx_chars = len(str(payload))
+        approx_tokens = max(1, approx_chars // 4)
+        with self._lock:
+            self._state["compiled_context"] = {
+                "query": query,
+                "approx_tokens": approx_tokens,
+                "max_tokens": max_tokens,
+                "sections": {
+                    "important_count": len(important),
+                    "recent_count": len(recent),
+                    "archive_count": len(search["archive"]),
+                },
+                "built_at": datetime.now().isoformat(),
+            }
+            self._state["metrics"]["context_builds"] += 1
+            self._persist_runtime_state()
+
+        return {
+            "payload": payload,
+            "approx_tokens": approx_tokens,
+            "max_tokens": max_tokens,
+            "fits_budget": approx_tokens <= max_tokens,
+        }
+
+    def sync_from_persistent_storage(self) -> None:
+        with self._lock:
+            self._hydrate_from_disk()
+            current_state = MemoryReader.load_current_state().get("state", {})
+            if isinstance(current_state, dict):
+                self._state["context"].update(deepcopy(current_state.get("context", {})))
+                self._state["current_task"] = deepcopy(current_state.get("current_task"))
+                self._state["last_action"] = deepcopy(current_state.get("last_action"))
+                self._state["current_status"] = current_state.get("current_status", self._state["current_status"])
+            self._persist_runtime_state()
+
+    def save_snapshot(self) -> Dict[str, Any]:
+        snapshot = {
+            "state": self.get_state(),
+            "snapshot_reason": "manual_save",
+        }
+        MemoryWriter.save_state_snapshot(snapshot)
+        return snapshot
+
+    # =====================================================================
+    # DEBUG / INSPECTION
+    # =====================================================================
+
+    def debug_view(self) -> str:
+        with self._lock:
+            task = self._state["current_task"]
+            action = self._state["last_action"]
+            status = self._state["current_status"]
+            context = self._state["context"]
+            pinned = len(self._state["pinned_memories"])
+            recent = len(self._state["recent_history"])
+
+            task_str = f"{task.get('name', 'N/A')}" if task else "None"
+            action_str = (
+                f"{action.get('tool', 'N/A')} ({action.get('result', {}).get('duration_ms', 0):.1f}ms)"
+                if action
+                else "None"
+            )
+
+            return f"""
+╔─ Perfect Memory ──────────────────────╗
+║ Session:       {self._state['session_id'][:12] if self._state['session_id'] else 'None':30}║
+║ Status:        {status:30}║
+║ Task:          {task_str:30}║
+║ Last Action:   {action_str:30}║
+║ Context Keys:  {len(context):30}║
+║ Prefs:         {len(self._state['user_preferences']):30}║
+║ Pinned:        {pinned:30}║
+║ Recent Events: {recent:30}║
+║ Token Budget:  {self.DEFAULT_CONTEXT_TOKEN_LIMIT:30}║
+╚───────────────────────────────────────╝
+"""
+
+    def debug_changes(self) -> str:
+        with self._lock:
+            if not self._change_log:
+                return "No changes recorded yet."
+            lines = ["Change Log (Last 10):"]
+            for i, change in enumerate(self._change_log, 1):
+                timestamp = change["timestamp"].split("T")[1][:8]
+                lines.append(
+                    f"{i}. {change['field']}: {str(change['old_value'])[:20]} -> {str(change['new_value'])[:20]} ({timestamp})"
+                )
+            return "\n".join(lines)
+
+    def debug_field_history(self, field: str) -> str:
+        with self._lock:
+            changes = [c for c in self._change_log if c["field"] == field]
+            if not changes:
+                return f"No changes for field: {field}"
+            lines = [f"History of '{field}':"]
+            for change in changes:
+                timestamp = change["timestamp"].split("T")[1][:8]
+                lines.append(f"  {str(change['new_value'])[:60]} ({timestamp})")
+            return "\n".join(lines)
+
+    def debug_diff(self, old_state: Dict[str, Any]) -> str:
+        current = self.get_state()
+        changed = [key for key in current.keys() if current[key] != old_state.get(key)]
+        unchanged = [key for key in current.keys() if current[key] == old_state.get(key)]
+        return "\n".join(
+            [
+                "State Comparison:",
+                f"Changed: {', '.join(changed) if changed else 'None'}",
+                f"Unchanged: {', '.join(unchanged) if unchanged else 'None'}",
+            ]
+        )
+
+    def get_stats(self) -> Dict[str, Any]:
+        with self._lock:
+            return {
+                "created_at": self._created_at.isoformat(),
+                "uptime_seconds": (datetime.now() - self._created_at).total_seconds(),
+                "change_log_size": len(self._change_log),
+                "subscribers": {k: len(v) for k, v in self._subscribers.items() if v},
+                "state_size_bytes": len(str(self._state).encode()),
+                "metrics": deepcopy(self._state["metrics"]),
+                "recent_history_size": len(self._state["recent_history"]),
+                "pinned_memories": len(self._state["pinned_memories"]),
+                "context_token_limit": self.DEFAULT_CONTEXT_TOKEN_LIMIT,
+            }
+
+    # =====================================================================
+    # SUBSCRIBERS / HOUSEKEEPING
+    # =====================================================================
+
+    def on_change(self, field: str, callback: Callable) -> None:
+        if field not in self._state:
+            raise KeyError(f"Unknown field: {field}")
+        self._subscribers.setdefault(field, []).append(callback)
+
+    def clear(self) -> None:
+        """Reset runtime state while keeping persistent memory on disk."""
+        with self._lock:
+            session_id = self._state.get("session_id")
+            self._state = self._build_initial_state()
+            self._state["session_id"] = session_id
+            self._change_log.clear()
+            self._created_at = datetime.now()
+            self._hydrate_from_disk()
+            self._persist_runtime_state()
+
+    # =====================================================================
+    # INTERNALS
+    # =====================================================================
+
+    def _build_initial_state(self) -> Dict[str, Any]:
+        return {
+            "session_id": uuid.uuid4().hex,
+            "current_task": None,
+            "last_action": None,
+            "current_status": "idle",
+            "context": {},
+            "user_preferences": {},
+            "pinned_memories": [],
+            "recent_history": [],
+            "compiled_context": {},
+            "last_memory_event": None,
+            "metrics": {
+                "memory_events": 0,
+                "context_builds": 0,
+                "pinned_memories": 0,
+            },
+        }
+
+    def _hydrate_from_disk(self) -> None:
+        self._state["user_preferences"] = MemoryReader.load_user_preferences()
+        self._state["pinned_memories"] = MemoryReader.load_important_memory().get("items", [])
+        self._state["metrics"]["pinned_memories"] = len(self._state["pinned_memories"])
+        self._state["recent_history"] = MemoryReader.load_14_day_memory()[:200]
+
+    def _append_recent_history(self, entry_type: str, payload: Any) -> None:
+        self._state["recent_history"].insert(
+            0,
+            {
+                "timestamp": datetime.now().isoformat(),
+                "type": entry_type,
+                "payload": deepcopy(payload),
+            },
+        )
+        self._state["recent_history"] = self._state["recent_history"][:500]
+
+    def _persist_runtime_state(self) -> None:
+        MemoryWriter.save_state_snapshot(
+            {
+                "state": {
+                    "session_id": self._state["session_id"],
+                    "current_task": self._state["current_task"],
+                    "last_action": self._state["last_action"],
+                    "current_status": self._state["current_status"],
+                    "context": self._state["context"],
+                    "metrics": self._state["metrics"],
+                }
+            }
+        )
+
+    def _record_change(self, field: str, old_value: Any, new_value: Any) -> None:
+        self._change_log.append(
+            {
+                "field": field,
+                "old_value": deepcopy(old_value),
+                "new_value": deepcopy(new_value),
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
+        if len(self._change_log) > 10:
+            self._change_log.pop(0)
+
+    def _notify_subscribers(self, field: str, value: Any) -> None:
+        for callback in self._subscribers.get(field, []):
+            try:
+                callback(value)
+            except Exception:
+                pass
+
+    @staticmethod
+    def _filter_entries_by_terms(entries: List[Dict[str, Any]], query: str, limit: int) -> List[Dict[str, Any]]:
+        terms = [term.lower() for term in query.split() if term.strip()]
+        if not terms:
+            return entries[:limit]
+
+        matches = []
+        for entry in entries:
+            haystack = str(entry).lower()
+            if all(term in haystack for term in terms):
+                matches.append(entry)
+            if len(matches) >= limit:
+                break
+        return matches
+
+
+MEMORY = Memory()
 
 
 
@@ -45718,6 +46055,67 @@ FILE: memory/data/identity/important_memory.json
       ],
       "priority": "critical",
       "saved_at": "2026-05-12T21:28:00.878245"
+    },
+    {
+      "content": "Elzyrra uses Brave. The human user uses Firefox. Keep browser responsibilities separate.",
+      "category": "browser_policy",
+      "tags": [
+        "browser",
+        "policy",
+        "important"
+      ],
+      "priority": "critical",
+      "saved_at": "2026-05-16T20:30:55.333485"
+    },
+    {
+      "content": "Elzyrra uses Brave. The human user uses Firefox. Keep browser responsibilities separate.",
+      "category": "browser_policy",
+      "tags": [
+        "browser",
+        "policy",
+        "important"
+      ],
+      "priority": "critical",
+      "saved_at": "2026-05-16T20:31:24.326606"
+    },
+    {
+      "content": "Elzyrra uses Brave. The human user uses Firefox. Keep browser responsibilities separate.",
+      "category": "browser_policy",
+      "tags": [
+        "browser",
+        "policy",
+        "important"
+      ],
+      "priority": "critical",
+      "saved_at": "2026-05-16T20:31:45.412681"
+    },
+    {
+      "content": "Elzyrra uses Brave. The human user uses Firefox. Keep browser responsibilities separate.",
+      "category": "browser_policy",
+      "tags": [
+        "browser",
+        "policy",
+        "important"
+      ],
+      "priority": "critical",
+      "saved_at": "2026-05-16T20:32:38.973348"
+    },
+    {
+      "content": "Elzyrra uses Brave and the user uses Firefox.",
+      "category": "browser_policy",
+      "tags": [
+        "browser",
+        "policy"
+      ],
+      "priority": "critical",
+      "saved_at": "2026-05-16T20:32:38.992259"
+    },
+    {
+      "content": "Browser policy: Elzyrra uses Brave; user uses Firefox.",
+      "category": "general",
+      "tags": [],
+      "priority": "high",
+      "saved_at": "2026-05-16T20:32:38.994559"
     }
   ]
 }
@@ -45729,15 +46127,12 @@ FILE: memory/data/identity/user_preferences.json
 
 {
   "preferences": {
-    "language": "en",
-    "timezone": "UTC+5:30",
-    "focus_areas": [
-      "AI",
-      "Python",
-      "System Design"
-    ]
+    "context_depth": "full",
+    "memory_token_budget": 10000000,
+    "preferred_browser": "firefox",
+    "assistant_browser": "brave"
   },
-  "updated_at": "2026-05-12T21:15:52.458234"
+  "updated_at": "2026-05-16T20:32:38.972875"
 }
 
 
@@ -45756,8 +46151,21 @@ FILE: memory/data/state/current_state.json
 ================================================================================
 
 {
-  "state": null,
-  "initialized_at": "2026-05-12T21:13:31.875513"
+  "state": {
+    "session_id": "827f1621dc7b42f9b8e5f150dbac0ad8",
+    "current_task": null,
+    "last_action": null,
+    "current_status": "idle",
+    "context": {
+      "session_name": "test_large_context_window"
+    },
+    "metrics": {
+      "memory_events": 2,
+      "context_builds": 1,
+      "pinned_memories": 8
+    }
+  },
+  "snapshot_at": "2026-05-16T20:32:38.997265"
 }
 
 
@@ -45777,6 +46185,17 @@ FILE: memory/data/state/README.md
 # Memory State Data
 
 This directory stores serialized runtime state snapshots used by the memory system.
+
+
+
+================================================================================
+FILE: memory/data/state/execution_history.jsonl
+================================================================================
+
+{"action": "memory_self_test", "result": {"step": "setup", "status": "complete"}, "success": true, "session_id": "15596395c6a3458b90a271746b164cc3", "timestamp": "2026-05-16T20:30:55.333697"}
+{"action": "memory_self_test", "result": {"step": "setup", "status": "complete"}, "success": true, "session_id": "9e5f02b1a78c4abe9c19041eaa418bf8", "timestamp": "2026-05-16T20:31:24.326799"}
+{"action": "memory_self_test", "result": {"step": "setup", "status": "complete"}, "success": true, "session_id": "3c45029e082b4cb1849d140de6f960c0", "timestamp": "2026-05-16T20:31:45.412984"}
+{"action": "memory_self_test", "result": {"step": "setup", "status": "complete"}, "success": true, "session_id": "23e2f9bb29cb462fb0328d50f584cbba", "timestamp": "2026-05-16T20:32:38.973564"}
 
 
 
@@ -45951,5 +46370,114 @@ This directory stores day-by-day JSONL logs for active memory.
 ## Format
 
 Each file is named by date and contains append-only records for that day.
+
+
+
+================================================================================
+FILE: memory/data/active/daily_logs/2026-05-16.jsonl
+================================================================================
+
+{"timestamp": "2026-05-16T20:30:55.318356", "type": "memory_event", "message": "Task updated: Login form", "severity": "info", "category": "task", "data": {"speaker": "system", "importance": 7, "tags": ["task", "runtime"], "session_id": "317c51a63055497f81beb774f623e0ce", "task": {"id": "task-001", "name": "Login form", "status": "in_progress"}}}
+{"timestamp": "2026-05-16T20:30:55.318613", "type": "memory_event", "message": "Action recorded: click_element", "severity": "info", "category": "action", "data": {"speaker": "system", "importance": 6, "tags": ["action", "runtime"], "session_id": "317c51a63055497f81beb774f623e0ce", "action": {"tool": "click_element", "result": {"success": true, "duration_ms": 45.23}}}}
+{"timestamp": "2026-05-16T20:30:55.318851", "type": "memory_event", "message": "Status changed from idle to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "317c51a63055497f81beb774f623e0ce", "old_status": "idle", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:30:55.331804", "type": "memory_event", "message": "Session started: main_memory-test", "severity": "info", "category": "session", "data": {"speaker": "system", "importance": 8, "tags": ["session", "startup"], "session_id": "15596395c6a3458b90a271746b164cc3", "metadata": {"started_at": "2026-05-16T20:30:55.331482"}}}
+{"timestamp": "2026-05-16T20:30:55.332705", "type": "memory_event", "message": "Session started: main_memory_test", "severity": "info", "category": "session", "data": {"speaker": "system", "importance": 8, "tags": ["session", "startup"], "session_id": "15596395c6a3458b90a271746b164cc3", "metadata": {"entrypoint": "main.py", "mode": "memory-test"}}}
+{"timestamp": "2026-05-16T20:30:55.333072", "type": "memory_event", "message": "Task updated: Validate perfect memory", "severity": "info", "category": "task", "data": {"speaker": "system", "importance": 7, "tags": ["task", "runtime"], "session_id": "15596395c6a3458b90a271746b164cc3", "task": {"id": "memory-001", "name": "Validate perfect memory", "status": "in_progress"}}}
+{"timestamp": "2026-05-16T20:30:55.333234", "type": "memory_event", "message": "Status changed from idle to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "15596395c6a3458b90a271746b164cc3", "old_status": "idle", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:30:55.333319", "type": "memory_event", "message": "Remember that Elzyrra uses Brave and the user uses Firefox.", "severity": "info", "category": "conversation", "data": {"speaker": "user", "importance": 6, "tags": ["user_message"], "session_id": "15596395c6a3458b90a271746b164cc3"}}
+{"timestamp": "2026-05-16T20:30:55.333405", "type": "memory_event", "message": "Confirmed browser split and stored it.", "severity": "info", "category": "conversation", "data": {"speaker": "scout", "importance": 5, "tags": ["agent_message"], "session_id": "15596395c6a3458b90a271746b164cc3"}}
+{"timestamp": "2026-05-16T20:30:55.333763", "type": "memory_event", "message": "Execution succeeded: memory_self_test", "severity": "info", "category": "execution", "data": {"speaker": "executor", "importance": 7, "tags": ["execution", "result", "success"], "session_id": "15596395c6a3458b90a271746b164cc3", "execution": {"action": "memory_self_test", "result": {"step": "setup", "status": "complete"}, "success": true, "session_id": "15596395c6a3458b90a271746b164cc3", "timestamp": "2026-05-16T20:30:55.333697"}}}
+{"timestamp": "2026-05-16T20:30:55.338047", "type": "memory_event", "message": "Status changed from executing to complete", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "15596395c6a3458b90a271746b164cc3", "old_status": "executing", "new_status": "complete"}}
+{"timestamp": "2026-05-16T20:31:24.269696", "type": "memory_event", "message": "Task updated: Login form", "severity": "info", "category": "task", "data": {"speaker": "system", "importance": 7, "tags": ["task", "runtime"], "session_id": "1363dcae91f74f26800aed0df70ffbae", "task": {"id": "task-001", "name": "Login form", "status": "in_progress"}}}
+{"timestamp": "2026-05-16T20:31:24.269954", "type": "memory_event", "message": "Action recorded: click_element", "severity": "info", "category": "action", "data": {"speaker": "system", "importance": 6, "tags": ["action", "runtime"], "session_id": "1363dcae91f74f26800aed0df70ffbae", "action": {"tool": "click_element", "result": {"success": true, "duration_ms": 45.23}}}}
+{"timestamp": "2026-05-16T20:31:24.270133", "type": "memory_event", "message": "Status changed from complete to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "1363dcae91f74f26800aed0df70ffbae", "old_status": "complete", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:31:24.325355", "type": "memory_event", "message": "Session started: main_memory-test", "severity": "info", "category": "session", "data": {"speaker": "system", "importance": 8, "tags": ["session", "startup"], "session_id": "9e5f02b1a78c4abe9c19041eaa418bf8", "metadata": {"started_at": "2026-05-16T20:31:24.325225"}}}
+{"timestamp": "2026-05-16T20:31:24.325983", "type": "memory_event", "message": "Session started: main_memory_test", "severity": "info", "category": "session", "data": {"speaker": "system", "importance": 8, "tags": ["session", "startup"], "session_id": "9e5f02b1a78c4abe9c19041eaa418bf8", "metadata": {"entrypoint": "main.py", "mode": "memory-test"}}}
+{"timestamp": "2026-05-16T20:31:24.326234", "type": "memory_event", "message": "Task updated: Validate perfect memory", "severity": "info", "category": "task", "data": {"speaker": "system", "importance": 7, "tags": ["task", "runtime"], "session_id": "9e5f02b1a78c4abe9c19041eaa418bf8", "task": {"id": "memory-001", "name": "Validate perfect memory", "status": "in_progress"}}}
+{"timestamp": "2026-05-16T20:31:24.326367", "type": "memory_event", "message": "Status changed from executing to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "9e5f02b1a78c4abe9c19041eaa418bf8", "old_status": "executing", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:31:24.326447", "type": "memory_event", "message": "Remember that Elzyrra uses Brave and the user uses Firefox.", "severity": "info", "category": "conversation", "data": {"speaker": "user", "importance": 6, "tags": ["user_message"], "session_id": "9e5f02b1a78c4abe9c19041eaa418bf8"}}
+{"timestamp": "2026-05-16T20:31:24.326526", "type": "memory_event", "message": "Confirmed browser split and stored it.", "severity": "info", "category": "conversation", "data": {"speaker": "scout", "importance": 5, "tags": ["agent_message"], "session_id": "9e5f02b1a78c4abe9c19041eaa418bf8"}}
+{"timestamp": "2026-05-16T20:31:24.326832", "type": "memory_event", "message": "Execution succeeded: memory_self_test", "severity": "info", "category": "execution", "data": {"speaker": "executor", "importance": 7, "tags": ["execution", "result", "success"], "session_id": "9e5f02b1a78c4abe9c19041eaa418bf8", "execution": {"action": "memory_self_test", "result": {"step": "setup", "status": "complete"}, "success": true, "session_id": "9e5f02b1a78c4abe9c19041eaa418bf8", "timestamp": "2026-05-16T20:31:24.326799"}}}
+{"timestamp": "2026-05-16T20:31:24.331436", "type": "memory_event", "message": "Status changed from executing to complete", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "9e5f02b1a78c4abe9c19041eaa418bf8", "old_status": "executing", "new_status": "complete"}}
+{"timestamp": "2026-05-16T20:31:45.406060", "type": "memory_event", "message": "Task updated: Login form", "severity": "info", "category": "task", "data": {"speaker": "system", "importance": 7, "tags": ["task", "runtime"], "session_id": "03004d967eec404d85f752e76e244c37", "task": {"id": "task-001", "name": "Login form", "status": "in_progress"}}}
+{"timestamp": "2026-05-16T20:31:45.406245", "type": "memory_event", "message": "Action recorded: click_element", "severity": "info", "category": "action", "data": {"speaker": "system", "importance": 6, "tags": ["action", "runtime"], "session_id": "03004d967eec404d85f752e76e244c37", "action": {"tool": "click_element", "result": {"success": true, "duration_ms": 45.23}}}}
+{"timestamp": "2026-05-16T20:31:45.406387", "type": "memory_event", "message": "Status changed from idle to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "03004d967eec404d85f752e76e244c37", "old_status": "idle", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:31:45.411467", "type": "memory_event", "message": "Session started: main_memory-test", "severity": "info", "category": "session", "data": {"speaker": "system", "importance": 8, "tags": ["session", "startup"], "session_id": "3c45029e082b4cb1849d140de6f960c0", "metadata": {"started_at": "2026-05-16T20:31:45.411308"}}}
+{"timestamp": "2026-05-16T20:31:45.412113", "type": "memory_event", "message": "Session started: main_memory_test", "severity": "info", "category": "session", "data": {"speaker": "system", "importance": 8, "tags": ["session", "startup"], "session_id": "3c45029e082b4cb1849d140de6f960c0", "metadata": {"entrypoint": "main.py", "mode": "memory-test"}}}
+{"timestamp": "2026-05-16T20:31:45.412322", "type": "memory_event", "message": "Task updated: Validate perfect memory", "severity": "info", "category": "task", "data": {"speaker": "system", "importance": 7, "tags": ["task", "runtime"], "session_id": "3c45029e082b4cb1849d140de6f960c0", "task": {"id": "memory-001", "name": "Validate perfect memory", "status": "in_progress"}}}
+{"timestamp": "2026-05-16T20:31:45.412451", "type": "memory_event", "message": "Status changed from idle to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3c45029e082b4cb1849d140de6f960c0", "old_status": "idle", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:31:45.412527", "type": "memory_event", "message": "Remember that Elzyrra uses Brave and the user uses Firefox.", "severity": "info", "category": "conversation", "data": {"speaker": "user", "importance": 6, "tags": ["user_message"], "session_id": "3c45029e082b4cb1849d140de6f960c0"}}
+{"timestamp": "2026-05-16T20:31:45.412608", "type": "memory_event", "message": "Confirmed browser split and stored it.", "severity": "info", "category": "conversation", "data": {"speaker": "scout", "importance": 5, "tags": ["agent_message"], "session_id": "3c45029e082b4cb1849d140de6f960c0"}}
+{"timestamp": "2026-05-16T20:31:45.413023", "type": "memory_event", "message": "Execution succeeded: memory_self_test", "severity": "info", "category": "execution", "data": {"speaker": "executor", "importance": 7, "tags": ["execution", "result", "success"], "session_id": "3c45029e082b4cb1849d140de6f960c0", "execution": {"action": "memory_self_test", "result": {"step": "setup", "status": "complete"}, "success": true, "session_id": "3c45029e082b4cb1849d140de6f960c0", "timestamp": "2026-05-16T20:31:45.412984"}}}
+{"timestamp": "2026-05-16T20:31:45.415426", "type": "memory_event", "message": "Status changed from executing to complete", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3c45029e082b4cb1849d140de6f960c0", "old_status": "executing", "new_status": "complete"}}
+{"timestamp": "2026-05-16T20:32:38.957047", "type": "memory_event", "message": "Task updated: Login form", "severity": "info", "category": "task", "data": {"speaker": "system", "importance": 7, "tags": ["task", "runtime"], "session_id": "2bfb2dcb53fe4a1dba2cd4b32343655c", "task": {"id": "task-001", "name": "Login form", "status": "in_progress"}}}
+{"timestamp": "2026-05-16T20:32:38.957228", "type": "memory_event", "message": "Action recorded: click_element", "severity": "info", "category": "action", "data": {"speaker": "system", "importance": 6, "tags": ["action", "runtime"], "session_id": "2bfb2dcb53fe4a1dba2cd4b32343655c", "action": {"tool": "click_element", "result": {"success": true, "duration_ms": 45.23}}}}
+{"timestamp": "2026-05-16T20:32:38.957372", "type": "memory_event", "message": "Status changed from idle to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "2bfb2dcb53fe4a1dba2cd4b32343655c", "old_status": "idle", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.958823", "type": "memory_event", "message": "Status changed from idle to idle", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "81ce0d9655c449cab349201d606b1efe", "old_status": "idle", "new_status": "idle"}}
+{"timestamp": "2026-05-16T20:32:38.958962", "type": "memory_event", "message": "Status changed from idle to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "81ce0d9655c449cab349201d606b1efe", "old_status": "idle", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.959075", "type": "memory_event", "message": "Status changed from executing to waiting_approval", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "81ce0d9655c449cab349201d606b1efe", "old_status": "executing", "new_status": "waiting_approval"}}
+{"timestamp": "2026-05-16T20:32:38.959180", "type": "memory_event", "message": "Status changed from waiting_approval to error", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "81ce0d9655c449cab349201d606b1efe", "old_status": "waiting_approval", "new_status": "error"}}
+{"timestamp": "2026-05-16T20:32:38.959637", "type": "memory_event", "message": "Status changed from idle to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "1a9df08b439941e5ab0a4ede7f018b2e", "old_status": "idle", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.959801", "type": "memory_event", "message": "Status changed from executing to error", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "1a9df08b439941e5ab0a4ede7f018b2e", "old_status": "executing", "new_status": "error"}}
+{"timestamp": "2026-05-16T20:32:38.959968", "type": "memory_event", "message": "Status changed from error to idle", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "1a9df08b439941e5ab0a4ede7f018b2e", "old_status": "error", "new_status": "idle"}}
+{"timestamp": "2026-05-16T20:32:38.960075", "type": "memory_event", "message": "Status changed from idle to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "1a9df08b439941e5ab0a4ede7f018b2e", "old_status": "idle", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.960172", "type": "memory_event", "message": "Status changed from executing to idle", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "1a9df08b439941e5ab0a4ede7f018b2e", "old_status": "executing", "new_status": "idle"}}
+{"timestamp": "2026-05-16T20:32:38.960272", "type": "memory_event", "message": "Status changed from idle to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "1a9df08b439941e5ab0a4ede7f018b2e", "old_status": "idle", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.960378", "type": "memory_event", "message": "Status changed from executing to idle", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "1a9df08b439941e5ab0a4ede7f018b2e", "old_status": "executing", "new_status": "idle"}}
+{"timestamp": "2026-05-16T20:32:38.960479", "type": "memory_event", "message": "Status changed from idle to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "1a9df08b439941e5ab0a4ede7f018b2e", "old_status": "idle", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.960579", "type": "memory_event", "message": "Status changed from executing to idle", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "1a9df08b439941e5ab0a4ede7f018b2e", "old_status": "executing", "new_status": "idle"}}
+{"timestamp": "2026-05-16T20:32:38.960679", "type": "memory_event", "message": "Status changed from idle to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "1a9df08b439941e5ab0a4ede7f018b2e", "old_status": "idle", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.960788", "type": "memory_event", "message": "Status changed from executing to idle", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "1a9df08b439941e5ab0a4ede7f018b2e", "old_status": "executing", "new_status": "idle"}}
+{"timestamp": "2026-05-16T20:32:38.960886", "type": "memory_event", "message": "Status changed from idle to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "1a9df08b439941e5ab0a4ede7f018b2e", "old_status": "idle", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.961389", "type": "memory_event", "message": "Status changed from idle to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "0b2719f75b124f93b865555c962c976e", "old_status": "idle", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.961494", "type": "memory_event", "message": "Status changed from executing to error", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "0b2719f75b124f93b865555c962c976e", "old_status": "executing", "new_status": "error"}}
+{"timestamp": "2026-05-16T20:32:38.961592", "type": "memory_event", "message": "Status changed from error to idle", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "0b2719f75b124f93b865555c962c976e", "old_status": "error", "new_status": "idle"}}
+{"timestamp": "2026-05-16T20:32:38.962418", "type": "memory_event", "message": "Status changed from idle to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "idle", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.963259", "type": "memory_event", "message": "Status changed from executing to idle", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "executing", "new_status": "idle"}}
+{"timestamp": "2026-05-16T20:32:38.964501", "type": "memory_event", "message": "Status changed from idle to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "idle", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.964719", "type": "memory_event", "message": "Status changed from executing to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "executing", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.969776", "type": "memory_event", "message": "Status changed from executing to idle", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "executing", "new_status": "idle"}}
+{"timestamp": "2026-05-16T20:32:38.970684", "type": "memory_event", "message": "Status changed from idle to idle", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "idle", "new_status": "idle"}}
+{"timestamp": "2026-05-16T20:32:38.971208", "type": "memory_event", "message": "Status changed from idle to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "idle", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.972065", "type": "memory_event", "message": "Session started: main_memory-test", "severity": "info", "category": "session", "data": {"speaker": "system", "importance": 8, "tags": ["session", "startup"], "session_id": "23e2f9bb29cb462fb0328d50f584cbba", "metadata": {"started_at": "2026-05-16T20:32:38.971963"}}}
+{"timestamp": "2026-05-16T20:32:38.972757", "type": "memory_event", "message": "Session started: main_memory_test", "severity": "info", "category": "session", "data": {"speaker": "system", "importance": 8, "tags": ["session", "startup"], "session_id": "23e2f9bb29cb462fb0328d50f584cbba", "metadata": {"entrypoint": "main.py", "mode": "memory-test"}}}
+{"timestamp": "2026-05-16T20:32:38.972986", "type": "memory_event", "message": "Task updated: Validate perfect memory", "severity": "info", "category": "task", "data": {"speaker": "system", "importance": 7, "tags": ["task", "runtime"], "session_id": "23e2f9bb29cb462fb0328d50f584cbba", "task": {"id": "memory-001", "name": "Validate perfect memory", "status": "in_progress"}}}
+{"timestamp": "2026-05-16T20:32:38.973112", "type": "memory_event", "message": "Status changed from idle to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "23e2f9bb29cb462fb0328d50f584cbba", "old_status": "idle", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.972861", "type": "memory_event", "message": "Status changed from executing to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "executing", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.973191", "type": "memory_event", "message": "Remember that Elzyrra uses Brave and the user uses Firefox.", "severity": "info", "category": "conversation", "data": {"speaker": "user", "importance": 6, "tags": ["user_message"], "session_id": "23e2f9bb29cb462fb0328d50f584cbba"}}
+{"timestamp": "2026-05-16T20:32:38.973271", "type": "memory_event", "message": "Confirmed browser split and stored it.", "severity": "info", "category": "conversation", "data": {"speaker": "scout", "importance": 5, "tags": ["agent_message"], "session_id": "23e2f9bb29cb462fb0328d50f584cbba"}}
+{"timestamp": "2026-05-16T20:32:38.973597", "type": "memory_event", "message": "Execution succeeded: memory_self_test", "severity": "info", "category": "execution", "data": {"speaker": "executor", "importance": 7, "tags": ["execution", "result", "success"], "session_id": "23e2f9bb29cb462fb0328d50f584cbba", "execution": {"action": "memory_self_test", "result": {"step": "setup", "status": "complete"}, "success": true, "session_id": "23e2f9bb29cb462fb0328d50f584cbba", "timestamp": "2026-05-16T20:32:38.973564"}}}
+{"timestamp": "2026-05-16T20:32:38.973638", "type": "memory_event", "message": "Status changed from executing to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "executing", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.976636", "type": "memory_event", "message": "Status changed from executing to idle", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "executing", "new_status": "idle"}}
+{"timestamp": "2026-05-16T20:32:38.976913", "type": "memory_event", "message": "Status changed from idle to idle", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "idle", "new_status": "idle"}}
+{"timestamp": "2026-05-16T20:32:38.977283", "type": "memory_event", "message": "Status changed from idle to idle", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "idle", "new_status": "idle"}}
+{"timestamp": "2026-05-16T20:32:38.977825", "type": "memory_event", "message": "Status changed from executing to complete", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "23e2f9bb29cb462fb0328d50f584cbba", "old_status": "executing", "new_status": "complete"}}
+{"timestamp": "2026-05-16T20:32:38.979893", "type": "memory_event", "message": "Status changed from idle to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "idle", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.980251", "type": "memory_event", "message": "Status changed from executing to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "executing", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.980656", "type": "memory_event", "message": "Status changed from executing to idle", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "executing", "new_status": "idle"}}
+{"timestamp": "2026-05-16T20:32:38.980802", "type": "memory_event", "message": "Status changed from idle to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "idle", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.981182", "type": "memory_event", "message": "Status changed from executing to idle", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "executing", "new_status": "idle"}}
+{"timestamp": "2026-05-16T20:32:38.981435", "type": "memory_event", "message": "Status changed from idle to idle", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "idle", "new_status": "idle"}}
+{"timestamp": "2026-05-16T20:32:38.981752", "type": "memory_event", "message": "Status changed from idle to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "idle", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.982130", "type": "memory_event", "message": "Status changed from executing to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "executing", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.982348", "type": "memory_event", "message": "Status changed from executing to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "executing", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.982675", "type": "memory_event", "message": "Status changed from executing to idle", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "executing", "new_status": "idle"}}
+{"timestamp": "2026-05-16T20:32:38.983061", "type": "memory_event", "message": "Status changed from idle to idle", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "idle", "new_status": "idle"}}
+{"timestamp": "2026-05-16T20:32:38.983260", "type": "memory_event", "message": "Status changed from idle to idle", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "idle", "new_status": "idle"}}
+{"timestamp": "2026-05-16T20:32:38.983544", "type": "memory_event", "message": "Status changed from idle to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "idle", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.983909", "type": "memory_event", "message": "Status changed from executing to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "executing", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.984136", "type": "memory_event", "message": "Status changed from executing to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "executing", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.984468", "type": "memory_event", "message": "Status changed from executing to idle", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "executing", "new_status": "idle"}}
+{"timestamp": "2026-05-16T20:32:38.984838", "type": "memory_event", "message": "Status changed from idle to idle", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "idle", "new_status": "idle"}}
+{"timestamp": "2026-05-16T20:32:38.985059", "type": "memory_event", "message": "Status changed from idle to idle", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "3b7d04a21ff949cc82adfcb427942410", "old_status": "idle", "new_status": "idle"}}
+{"timestamp": "2026-05-16T20:32:38.988293", "type": "memory_event", "message": "Task updated: Login", "severity": "info", "category": "task", "data": {"speaker": "system", "importance": 7, "tags": ["task", "runtime"], "session_id": "67b325b96e1a492b9089e0e6469baf30", "task": {"id": "task-001", "name": "Login"}}}
+{"timestamp": "2026-05-16T20:32:38.988428", "type": "memory_event", "message": "Status changed from idle to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "67b325b96e1a492b9089e0e6469baf30", "old_status": "idle", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.989846", "type": "memory_event", "message": "Task updated: task-001", "severity": "info", "category": "task", "data": {"speaker": "system", "importance": 7, "tags": ["task", "runtime"], "session_id": "2d2cea7089434e4eb505f161b539d56c", "task": {"id": "task-001"}}}
+{"timestamp": "2026-05-16T20:32:38.989966", "type": "memory_event", "message": "Status changed from idle to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "2d2cea7089434e4eb505f161b539d56c", "old_status": "idle", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.991064", "type": "memory_event", "message": "Task updated: global-task", "severity": "info", "category": "task", "data": {"speaker": "system", "importance": 7, "tags": ["task", "runtime"], "session_id": "7dc6a37601e643eaaf699b8ac44f5e3d", "task": {"id": "global-task"}}}
+{"timestamp": "2026-05-16T20:32:38.991175", "type": "memory_event", "message": "Status changed from idle to executing", "severity": "info", "category": "state", "data": {"speaker": "system", "importance": 4, "tags": ["status", "runtime"], "session_id": "7dc6a37601e643eaaf699b8ac44f5e3d", "old_status": "idle", "new_status": "executing"}}
+{"timestamp": "2026-05-16T20:32:38.992175", "type": "memory_event", "message": "Session started: test_persistent_pin_and_search", "severity": "info", "category": "session", "data": {"speaker": "system", "importance": 8, "tags": ["session", "startup"], "session_id": "f94aba88b5594c04a3335238987b2c59", "metadata": {}}}
+{"timestamp": "2026-05-16T20:32:38.994390", "type": "memory_event", "message": "Session started: test_large_context_window", "severity": "info", "category": "session", "data": {"speaker": "system", "importance": 8, "tags": ["session", "startup"], "session_id": "827f1621dc7b42f9b8e5f150dbac0ad8", "metadata": {}}}
+{"timestamp": "2026-05-16T20:32:38.994480", "type": "memory_event", "message": "Remember the browser policy and long-term task priorities.", "severity": "info", "category": "conversation", "data": {"speaker": "user", "importance": 6, "tags": ["user_message"], "session_id": "827f1621dc7b42f9b8e5f150dbac0ad8"}}
 
 

@@ -1,12 +1,9 @@
 {
   "preferences": {
-    "language": "en",
-    "timezone": "UTC+5:30",
-    "focus_areas": [
-      "AI",
-      "Python",
-      "System Design"
-    ]
+    "context_depth": "full",
+    "memory_token_budget": 10000000,
+    "preferred_browser": "firefox",
+    "assistant_browser": "brave"
   },
-  "updated_at": "2026-05-12T21:15:52.458234"
+  "updated_at": "2026-05-16T20:32:38.972875"
 }

@@ -23,6 +23,67 @@
       ],
       "priority": "critical",
       "saved_at": "2026-05-12T21:28:00.878245"
+    },
+    {
+      "content": "Elzyrra uses Brave. The human user uses Firefox. Keep browser responsibilities separate.",
+      "category": "browser_policy",
+      "tags": [
+        "browser",
+        "policy",
+        "important"
+      ],
+      "priority": "critical",
+      "saved_at": "2026-05-16T20:30:55.333485"
+    },
+    {
+      "content": "Elzyrra uses Brave. The human user uses Firefox. Keep browser responsibilities separate.",
+      "category": "browser_policy",
+      "tags": [
+        "browser",
+        "policy",
+        "important"
+      ],
+      "priority": "critical",
+      "saved_at": "2026-05-16T20:31:24.326606"
+    },
+    {
+      "content": "Elzyrra uses Brave. The human user uses Firefox. Keep browser responsibilities separate.",
+      "category": "browser_policy",
+      "tags": [
+        "browser",
+        "policy",
+        "important"
+      ],
+      "priority": "critical",
+      "saved_at": "2026-05-16T20:31:45.412681"
+    },
+    {
+      "content": "Elzyrra uses Brave. The human user uses Firefox. Keep browser responsibilities separate.",
+      "category": "browser_policy",
+      "tags": [
+        "browser",
+        "policy",
+        "important"
+      ],
+      "priority": "critical",
+      "saved_at": "2026-05-16T20:32:38.973348"
+    },
+    {
+      "content": "Elzyrra uses Brave and the user uses Firefox.",
+      "category": "browser_policy",
+      "tags": [
+        "browser",
+        "policy"
+      ],
+      "priority": "critical",
+      "saved_at": "2026-05-16T20:32:38.992259"
+    },
+    {
+      "content": "Browser policy: Elzyrra uses Brave; user uses Firefox.",
+      "category": "general",
+      "tags": [],
+      "priority": "high",
+      "saved_at": "2026-05-16T20:32:38.994559"
     }
   ]
 }

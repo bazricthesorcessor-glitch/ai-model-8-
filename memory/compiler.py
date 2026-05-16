@@ -27,10 +27,10 @@ class ContextCompiler:
     """Compiles comprehensive context for Scout."""
 
     # ========================================================================
-    # TOKEN ALLOCATION (1M token window)
+    # TOKEN ALLOCATION (10M token window)
     # ========================================================================
-    TOTAL_TOKENS = 1_000_000
-    RESERVED_TOKENS = 100_000  # For response generation
+    TOTAL_TOKENS = 10_000_000
+    RESERVED_TOKENS = 1_000_000  # For response generation
 
     # Default allocation percentages
     TOKEN_ALLOCATION = {

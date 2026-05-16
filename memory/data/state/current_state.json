@@ -1,4 +1,17 @@
 {
-  "state": null,
-  "initialized_at": "2026-05-12T21:13:31.875513"
+  "state": {
+    "session_id": "827f1621dc7b42f9b8e5f150dbac0ad8",
+    "current_task": null,
+    "last_action": null,
+    "current_status": "idle",
+    "context": {
+      "session_name": "test_large_context_window"
+    },
+    "metrics": {
+      "memory_events": 2,
+      "context_builds": 1,
+      "pinned_memories": 8
+    }
+  },
+  "snapshot_at": "2026-05-16T20:32:38.997265"
 }

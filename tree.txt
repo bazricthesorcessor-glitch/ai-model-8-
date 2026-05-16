@@ -96,6 +96,7 @@
 │   │   ├── active
 │   │   │   ├── daily_logs
 │   │   │   │   ├── 2026-05-12.jsonl
+│   │   │   │   ├── 2026-05-16.jsonl
 │   │   │   │   └── README.md
 │   │   │   └── README.md
 │   │   ├── agents
@@ -125,6 +126,7 @@
 │   │   ├── state
 │   │   │   ├── agents_state.json
 │   │   │   ├── current_state.json
+│   │   │   ├── execution_history.jsonl
 │   │   │   └── README.md
 │   │   ├── temporary
 │   │   │   ├── deadlines.json
@@ -151,6 +153,7 @@
 │   │   ├── reader.cpython-314.pyc
 │   │   ├── schemas.cpython-314.pyc
 │   │   ├── search.cpython-314.pyc
+│   │   ├── test_memory.cpython-314.pyc
 │   │   └── writer.cpython-314.pyc
 │   ├── reader.py
 │   ├── README.md
@@ -472,4 +475,4 @@
 │   └── README.md
 └── WORKFLOW_STRUCTURE.md
 
-78 directories, 395 files
+78 directories, 398 files
