@@ -87,6 +87,30 @@ else
     ((CHECKS_FAILED+=1))
 fi
 
+for module in pydantic bs4 lxml aiohttp; do
+    if python3 -c "import $module" 2>/dev/null; then
+        echo -e "${GREEN}✓${NC} $module installed"
+        ((CHECKS_PASSED+=1))
+    else
+        echo -e "${RED}✗${NC} $module NOT installed (required for web subsystem)"
+        ((CHECKS_FAILED+=1))
+    fi
+done
+
+if python3 -c "import scrapegraphai" 2>/dev/null; then
+    echo -e "${GREEN}✓${NC} scrapegraphai installed"
+    ((CHECKS_PASSED+=1))
+else
+    echo -e "${YELLOW}!${NC} scrapegraphai not installed (semantic extraction fallback only)"
+fi
+
+if python3 -c "import playwright" 2>/dev/null; then
+    echo -e "${GREEN}✓${NC} playwright installed"
+    ((CHECKS_PASSED+=1))
+else
+    echo -e "${YELLOW}!${NC} playwright not installed (requests fallback only)"
+fi
+
 # Check vosk (optional)
 if python3 -c "import vosk" 2>/dev/null; then
     echo -e "${GREEN}✓${NC} vosk installed (voice input available)"

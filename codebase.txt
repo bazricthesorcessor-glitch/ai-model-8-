@@ -2598,6 +2598,14 @@ vosk>=0.3.45
 pyaudio>=0.2.13
 groq>=0.4.0
 prompt-toolkit>=3.0.0
+scrapegraphai>=1.12.0
+playwright>=1.57.0
+ollama>=0.4.7
+pydantic>=2.8.0
+aiohttp>=3.10.0
+beautifulsoup4>=4.12.0
+lxml>=5.2.0
+
 
 
 ================================================================================
@@ -8640,8 +8648,8 @@ from .settings import (
     INTENT_CONFIG,
     SCREEN_CONFIG,
     OS_CONFIG,
-    WEB_CONFIG,
 )
+from .web import DEFAULT_OLLAMA_MODEL, WEB_CONFIG
 from .paths import Paths, path_of
 from .app import (
     APP_NAME,
@@ -8674,6 +8682,7 @@ __all__ = [
     "ensure_runtime_dirs",
     "ENDPOINTS",
     "endpoint_of",
+    "DEFAULT_OLLAMA_MODEL",
     "ALLOWED_WORKSPACES",
     "WORKSPACE_REGISTRY",
     "get_available_workspace",
@@ -8897,6 +8906,7 @@ All system configuration centralized here.
 import os
 from datetime import datetime
 from .endpoints import endpoint_of
+from .web import WEB_CONFIG as WEB_SUBSYSTEM_CONFIG
 
 
 
@@ -9056,27 +9066,46 @@ TOOL_REGISTRY = {
         "params": {"selector": str, "text": str, "by_type": str},
         "handler": "web.type_text",
     },
+    "semantic_extract": {
+        "platform": "web",
+        "description": "Semantically extract structured data from a page",
+        "params": {"url": str, "prompt": str, "schema": str},
+        "handler": "web.semantic_extract",
+    },
+    "search_and_extract": {
+        "platform": "web",
+        "description": "Search for pages, then semantically extract them",
+        "params": {"query": str, "prompt": str, "limit": int, "schema": str},
+        "handler": "web.search_and_extract",
+    },
+    "extract_article": {
+        "platform": "web",
+        "description": "Extract article data using a typed schema",
+        "params": {"url": str},
+        "handler": "web.extract_article",
+    },
+    "extract_product": {
+        "platform": "web",
+        "description": "Extract product data using a typed schema",
+        "params": {"url": str},
+        "handler": "web.extract_product",
+    },
+    "extract_research": {
+        "platform": "web",
+        "description": "Extract research paper data using a typed schema",
+        "params": {"url": str},
+        "handler": "web.extract_research",
+    },
+    "summarize_page": {
+        "platform": "web",
+        "description": "Summarize a page as structured semantic output",
+        "params": {"url": str},
+        "handler": "web.summarize_page",
+    },
 }
 
 # ===== WEB MODULE CONFIGURATION =====
-WEB_CONFIG = {
-    "backend": "mock",  # Options: mock, api, scraper, browser
-    "search_provider": "serpapi",  # Options: serpapi, google, bing, duckduckgo, brave, mock
-    "browser_type": "chrome",  # Options: chrome, firefox, edge, safari, mock
-    "browser_headless": True,  # Run browser in headless mode
-    "browser_timeout": 10,  # Browser operation timeout in seconds
-    "scraper_timeout": 10,  # Web scraping timeout
-    "request_headers": {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-    },
-    # API keys (use environment variables in production)
-    "api_keys": {
-        "serpapi": None,  # Use SERPAPI_KEY env var
-        "google": None,  # Use GOOGLE_SEARCH_API_KEY env var
-        "bing": None,  # Use BING_SEARCH_API_KEY env var
-        "brave": None,  # Use BRAVE_SEARCH_API_KEY env var
-    },
-}
+WEB_CONFIG = WEB_SUBSYSTEM_CONFIG.copy()
 
 # ===== OS/HYPRLAND CONFIGURATION =====
 # ACTUAL configuration locations for Hyprland and Caelestia desktop environment
@@ -9234,15 +9263,20 @@ def ensure_runtime_dirs() -> None:
 FILE: config/endpoints.py
 ================================================================================
 
-"""
-Central registry of localhost services used by Elzyra.
-"""
+"""Central registry of local services and runtime resources used by Elzyra."""
+
+from pathlib import Path
+
+_WEB_CACHE_PATH = Path.home() / ".cache" / "elzyra" / "web"
 
 ENDPOINTS = {
     "brave_cdp": "http://127.0.0.1:9222",
     "brave_tabs": "http://127.0.0.1:9222/json",
     "ollama": "http://127.0.0.1:11434",
     "ollama_generate": "http://127.0.0.1:11434/api/generate",
+    "scrapegraph_service": "local://elzyra/web/scrapegraph",
+    "playwright": "local://playwright/chromium",
+    "web_cache": f"file://{_WEB_CACHE_PATH}",
 }
 
 
@@ -9274,6 +9308,7 @@ from config import (
     APP_NAME,
     CONTACT_EMAIL,
     ENDPOINTS,
+    DEFAULT_OLLAMA_MODEL,
     endpoint_of,
 )
 
@@ -9285,8 +9320,12 @@ def test_endpoint_registry_values():
     assert endpoint_of("brave_tabs") == "http://127.0.0.1:9222/json"
     assert endpoint_of("ollama") == "http://127.0.0.1:11434"
     assert endpoint_of("ollama_generate") == "http://127.0.0.1:11434/api/generate"
+    assert endpoint_of("scrapegraph_service") == "local://elzyra/web/scrapegraph"
+    assert endpoint_of("playwright") == "local://playwright/chromium"
+    assert endpoint_of("web_cache").startswith("file://")
     assert ENDPOINTS["brave_cdp"] == endpoint_of("brave_cdp")
     assert ALLOWED_WORKSPACES == [7, 8, 9]
+    assert DEFAULT_OLLAMA_MODEL == "llama3.1:8b"
 
 
 def test_unknown_endpoint_raises_clear_error():
@@ -10069,6 +10108,7 @@ The `config` package is the shared source of settings, paths, endpoints, and app
 - `settings.py`: runtime defaults and configuration maps.
 - `paths.py`: semantic path resolution helpers.
 - `endpoints.py`, `app.py`: endpoint and app-specific settings.
+- `web.py`: semantic web subsystem defaults.
 - `workspaces.py`: Elzyra workspace registry and selection helpers.
 - `HYPRLAND_CONFIG_GUIDE.md`: desktop-specific reference material.
 
@@ -10172,6 +10212,52 @@ def get_available_workspace(
             return workspace
 
     return None
+
+
+
+================================================================================
+FILE: config/web.py
+================================================================================
+
+"""
+Configuration for Elzyra's semantic web extraction subsystem.
+
+This module is intentionally separate from UI/browser-control settings.
+It configures semantic extraction, local model usage, caching, and scraping.
+"""
+
+from __future__ import annotations
+
+from .endpoints import endpoint_of
+
+
+DEFAULT_OLLAMA_MODEL = "llama3.1:8b"
+DEFAULT_EMBEDDING_MODEL = "nomic-embed-text"
+
+WEB_CONFIG = {
+    "timeout": 60,
+    "max_concurrency": 5,
+    "cache_enabled": True,
+    "cache_ttl_seconds": 1800,
+    "cache_max_entries": 256,
+    "headless": True,
+    "max_retries": 3,
+    "retry_backoff_seconds": 1.5,
+    "default_result_limit": 5,
+    "playwright_wait_until": "networkidle",
+    "page_ready_timeout": 30000,
+    "request_timeout": 30,
+    "max_page_text_chars": 24000,
+    "rate_limit_per_domain_seconds": 1.0,
+    "domain_concurrency": 2,
+    "browser_backend": "playwright",
+    "ollama_model": DEFAULT_OLLAMA_MODEL,
+    "embedding_model": DEFAULT_EMBEDDING_MODEL,
+    "ollama_base_url": endpoint_of("ollama"),
+    "ollama_generate_url": endpoint_of("ollama_generate"),
+    "search_provider": "duckduckgo",
+}
+
 
 
 
@@ -25235,6 +25321,12 @@ try:
         FetchPageTool,
         ExtractTextTool,
         ExtractLinksTool,
+        SemanticExtractTool,
+        SearchAndExtractTool,
+        ExtractArticleTool,
+        ExtractProductTool,
+        ExtractResearchTool,
+        SummarizePageTool,
         BrowserNavigateTool,
         BrowserClickTool,
         BrowserTypeTool,
@@ -25277,6 +25369,12 @@ if WEB_TOOLS_AVAILABLE:
         "FetchPageTool",
         "ExtractTextTool",
         "ExtractLinksTool",
+        "SemanticExtractTool",
+        "SearchAndExtractTool",
+        "ExtractArticleTool",
+        "ExtractProductTool",
+        "ExtractResearchTool",
+        "SummarizePageTool",
         "BrowserNavigateTool",
         "BrowserClickTool",
         "BrowserTypeTool",
@@ -25318,6 +25416,12 @@ if WEB_TOOLS_AVAILABLE:
     REGISTRY.register(FetchPageTool())
     REGISTRY.register(ExtractTextTool())
     REGISTRY.register(ExtractLinksTool())
+    REGISTRY.register(SemanticExtractTool())
+    REGISTRY.register(SearchAndExtractTool())
+    REGISTRY.register(ExtractArticleTool())
+    REGISTRY.register(ExtractProductTool())
+    REGISTRY.register(ExtractResearchTool())
+    REGISTRY.register(SummarizePageTool())
     REGISTRY.register(BrowserNavigateTool())
     REGISTRY.register(BrowserClickTool())
     REGISTRY.register(BrowserTypeTool())
@@ -37940,6 +38044,9 @@ mkdir -p ~/.local/run
 echo "Installing Python dependencies..."
 pip3 install -r "$PROJECT_DIR/requirements.txt"
 
+echo "Installing Playwright Chromium..."
+python3 -m playwright install chromium
+
 # Check Ollama connection
 echo "Testing Ollama connection..."
 if curl -s "$OLLAMA_URL/api/tags" > /dev/null; then
@@ -38083,6 +38190,30 @@ else
     ((CHECKS_FAILED+=1))
 fi
 
+for module in pydantic bs4 lxml aiohttp; do
+    if python3 -c "import $module" 2>/dev/null; then
+        echo -e "${GREEN}✓${NC} $module installed"
+        ((CHECKS_PASSED+=1))
+    else
+        echo -e "${RED}✗${NC} $module NOT installed (required for web subsystem)"
+        ((CHECKS_FAILED+=1))
+    fi
+done
+
+if python3 -c "import scrapegraphai" 2>/dev/null; then
+    echo -e "${GREEN}✓${NC} scrapegraphai installed"
+    ((CHECKS_PASSED+=1))
+else
+    echo -e "${YELLOW}!${NC} scrapegraphai not installed (semantic extraction fallback only)"
+fi
+
+if python3 -c "import playwright" 2>/dev/null; then
+    echo -e "${GREEN}✓${NC} playwright installed"
+    ((CHECKS_PASSED+=1))
+else
+    echo -e "${YELLOW}!${NC} playwright not installed (requests fallback only)"
+fi
+
 # Check vosk (optional)
 if python3 -c "import vosk" 2>/dev/null; then
     echo -e "${GREEN}✓${NC} vosk installed (voice input available)"
@@ -38211,6 +38342,39 @@ This directory contains shell scripts for setup and environment checks.
 ## Notes
 
 Keep disposable automation here instead of the repository root.
+
+
+
+================================================================================
+FILE: scripts/verify_web_subsystem.py
+================================================================================
+
+#!/usr/bin/env python3
+"""Verify the semantic web subsystem imports and core wiring."""
+
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from config import DEFAULT_OLLAMA_MODEL, endpoint_of
+from schemas import ArticleSummary, ProductInfo
+from web import SCRAPE_SERVICE
+
+
+def main() -> int:
+    print("Semantic web subsystem verification")
+    print(f"  default model: {DEFAULT_OLLAMA_MODEL}")
+    print(f"  ollama endpoint: {endpoint_of('ollama')}")
+    print(f"  cache endpoint: {endpoint_of('web_cache')}")
+    print(f"  schemas: {ArticleSummary.__name__}, {ProductInfo.__name__}")
+    print(f"  cache stats: {SCRAPE_SERVICE.cache.stats()}")
+    print("  status: import and wiring OK")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
 
 
 
@@ -38717,6 +38881,1635 @@ FILE: scout/README.md
 ## Purpose
 
 This folder is intentionally small. It isolates Scout-specific behavior from the general router and memory modules.
+
+
+
+================================================================================
+FILE: schemas/__init__.py
+================================================================================
+
+"""Structured extraction schemas for Elzyra's semantic web subsystem."""
+
+from .article import ArticleSummary
+from .generic import ExtractionEnvelope, GenericExtraction
+from .github_repo import GithubRepository
+from .person import PersonProfile
+from .product import ProductInfo
+from .research import ResearchPaper
+from .search_results import SearchResultItem, SearchResultsPage
+
+SCHEMA_REGISTRY = {
+    "article": ArticleSummary,
+    "generic": GenericExtraction,
+    "github_repo": GithubRepository,
+    "person": PersonProfile,
+    "product": ProductInfo,
+    "research": ResearchPaper,
+    "search_results": SearchResultsPage,
+}
+
+__all__ = [
+    "ArticleSummary",
+    "ExtractionEnvelope",
+    "GenericExtraction",
+    "GithubRepository",
+    "PersonProfile",
+    "ProductInfo",
+    "ResearchPaper",
+    "SearchResultItem",
+    "SearchResultsPage",
+    "SCHEMA_REGISTRY",
+]
+
+
+
+
+================================================================================
+FILE: schemas/generic.py
+================================================================================
+
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
+
+
+class ExtractionEnvelope(BaseModel):
+    source_url: str = Field(default="", description="Source URL used for extraction")
+    strategy: str = Field(default="", description="Extraction strategy used")
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    warnings: List[str] = Field(default_factory=list)
+
+
+class GenericExtraction(BaseModel):
+    title: str = ""
+    summary: str = ""
+    key_points: List[str] = Field(default_factory=list)
+    entities: List[str] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    raw_text_excerpt: Optional[str] = None
+
+
+
+
+================================================================================
+FILE: schemas/product.py
+================================================================================
+
+from __future__ import annotations
+
+from typing import List, Optional
+
+from pydantic import BaseModel, Field, HttpUrl
+
+
+class ProductInfo(BaseModel):
+    name: str = ""
+    brand: Optional[str] = None
+    price: Optional[str] = None
+    currency: Optional[str] = None
+    availability: Optional[str] = None
+    rating: Optional[float] = Field(default=None, ge=0.0, le=5.0)
+    review_count: Optional[int] = Field(default=None, ge=0)
+    description: str = ""
+    features: List[str] = Field(default_factory=list)
+    category: Optional[str] = None
+    image_url: Optional[HttpUrl] = None
+    source_url: Optional[HttpUrl] = None
+
+
+
+
+================================================================================
+FILE: schemas/article.py
+================================================================================
+
+from __future__ import annotations
+
+from typing import List, Optional
+
+from pydantic import BaseModel, Field, HttpUrl
+
+
+class ArticleSummary(BaseModel):
+    title: str = ""
+    author: Optional[str] = None
+    publication: Optional[str] = None
+    published_at: Optional[str] = None
+    summary: str = ""
+    key_points: List[str] = Field(default_factory=list)
+    topics: List[str] = Field(default_factory=list)
+    sentiment: Optional[str] = None
+    source_url: Optional[HttpUrl] = None
+
+
+
+
+================================================================================
+FILE: schemas/github_repo.py
+================================================================================
+
+from __future__ import annotations
+
+from typing import List, Optional
+
+from pydantic import BaseModel, Field, HttpUrl
+
+
+class GithubRepository(BaseModel):
+    name: str = ""
+    owner: str = ""
+    description: str = ""
+    primary_language: Optional[str] = None
+    stars: Optional[int] = Field(default=None, ge=0)
+    forks: Optional[int] = Field(default=None, ge=0)
+    topics: List[str] = Field(default_factory=list)
+    license_name: Optional[str] = None
+    default_branch: Optional[str] = None
+    repo_url: Optional[HttpUrl] = None
+
+
+
+
+================================================================================
+FILE: schemas/person.py
+================================================================================
+
+from __future__ import annotations
+
+from typing import List, Optional
+
+from pydantic import BaseModel, Field, HttpUrl
+
+
+class PersonProfile(BaseModel):
+    full_name: str = ""
+    role: Optional[str] = None
+    organization: Optional[str] = None
+    location: Optional[str] = None
+    bio: str = ""
+    skills: List[str] = Field(default_factory=list)
+    links: List[HttpUrl] = Field(default_factory=list)
+
+
+
+
+================================================================================
+FILE: schemas/search_results.py
+================================================================================
+
+from __future__ import annotations
+
+from typing import List, Optional
+
+from pydantic import BaseModel, Field, HttpUrl
+
+
+class SearchResultItem(BaseModel):
+    title: str = ""
+    url: HttpUrl
+    snippet: str = ""
+    position: int = Field(default=0, ge=0)
+    source: Optional[str] = None
+
+
+class SearchResultsPage(BaseModel):
+    query: str
+    provider: str
+    results: List[SearchResultItem] = Field(default_factory=list)
+
+
+
+
+================================================================================
+FILE: schemas/research.py
+================================================================================
+
+from __future__ import annotations
+
+from typing import List, Optional
+
+from pydantic import BaseModel, Field, HttpUrl
+
+
+class ResearchPaper(BaseModel):
+    title: str = ""
+    authors: List[str] = Field(default_factory=list)
+    abstract: str = ""
+    key_findings: List[str] = Field(default_factory=list)
+    methods: List[str] = Field(default_factory=list)
+    publication_year: Optional[int] = Field(default=None, ge=1900)
+    venue: Optional[str] = None
+    doi: Optional[str] = None
+    paper_url: Optional[HttpUrl] = None
+
+
+
+
+================================================================================
+FILE: schemas/README.md
+================================================================================
+
+# Schemas
+
+This package contains Pydantic models for semantic web extraction.
+
+The schema layer keeps extraction outputs typed and composable:
+- product
+- article
+- github repository
+- person
+- research
+- search results
+- generic summaries
+
+
+
+================================================================================
+FILE: web/utils.py
+================================================================================
+
+"""Shared helpers for Elzyra's semantic web subsystem."""
+
+from __future__ import annotations
+
+import asyncio
+import hashlib
+import json
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Callable, Dict, Optional
+from urllib.parse import urlparse
+
+
+def normalize_url(url: str) -> str:
+    """Normalize a URL-like string into an absolute HTTP URL."""
+    if "://" in url:
+        return url
+    return f"https://{url}"
+
+
+def domain_of(url: str) -> str:
+    parsed = urlparse(normalize_url(url))
+    return parsed.netloc.lower()
+
+
+def cache_key_for(*parts: Any) -> str:
+    payload = json.dumps(parts, sort_keys=True, default=str)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def ensure_jsonable(value: Any) -> Any:
+    """Convert models and dataclasses into JSON-safe payloads."""
+    if hasattr(value, "model_dump"):
+        return value.model_dump()
+    if hasattr(value, "__dict__"):
+        return {
+            key: ensure_jsonable(item)
+            for key, item in value.__dict__.items()
+            if not key.startswith("_")
+        }
+    if isinstance(value, dict):
+        return {str(key): ensure_jsonable(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [ensure_jsonable(item) for item in value]
+    return value
+
+
+def run_sync(coro: Any) -> Any:
+    """Run an async coroutine from sync code, even if an event loop exists."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop and loop.is_running():
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(asyncio.run, coro)
+            return future.result()
+
+    return asyncio.run(coro)
+
+
+def compact_text(text: str, max_chars: int) -> str:
+    """Truncate text conservatively for model prompts."""
+    text = (text or "").strip()
+    if len(text) <= max_chars:
+        return text
+    return text[: max_chars - 3].rstrip() + "..."
+
+
+def optional_import_error(module_name: str, extra: Optional[str] = None) -> str:
+    message = f"Optional dependency '{module_name}' is not installed"
+    if extra:
+        message = f"{message}. {extra}"
+    return message
+
+
+
+
+================================================================================
+FILE: web/cache.py
+================================================================================
+
+"""TTL cache primitives for semantic web extraction."""
+
+from __future__ import annotations
+
+import json
+import time
+import tempfile
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+from config import CACHE_DIR
+from config.web import WEB_CONFIG
+from .utils import ensure_jsonable
+
+
+class WebCache:
+    """Small persistent TTL cache for expensive extraction operations."""
+
+    def __init__(
+        self,
+        cache_path: Optional[Path] = None,
+        ttl_seconds: Optional[int] = None,
+        max_entries: Optional[int] = None,
+    ):
+        self.cache_path = cache_path or (CACHE_DIR / "web_cache.json")
+        self.ttl_seconds = ttl_seconds or WEB_CONFIG["cache_ttl_seconds"]
+        self.max_entries = max_entries or WEB_CONFIG["cache_max_entries"]
+        self._persistence_enabled = True
+        try:
+            self.cache_path.parent.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            self.cache_path = Path(tempfile.gettempdir()) / "elzyra_web_cache.json"
+            self.cache_path.parent.mkdir(parents=True, exist_ok=True)
+        self._memory: Dict[str, Dict[str, Any]] = {}
+        self._load()
+
+    def get(self, key: str) -> Optional[Any]:
+        entry = self._memory.get(key)
+        if not entry:
+            return None
+        if self._is_expired(entry):
+            self.delete(key)
+            return None
+        return entry.get("value")
+
+    def set(self, key: str, value: Any, ttl_seconds: Optional[int] = None) -> None:
+        self._memory[key] = {
+            "value": ensure_jsonable(value),
+            "created_at": time.time(),
+            "ttl_seconds": ttl_seconds or self.ttl_seconds,
+        }
+        self._enforce_max_entries()
+        self._persist()
+
+    def delete(self, key: str) -> None:
+        self._memory.pop(key, None)
+        self._persist()
+
+    def clear(self) -> None:
+        self._memory.clear()
+        self._persist()
+
+    def stats(self) -> Dict[str, Any]:
+        active_entries = {
+            key: value
+            for key, value in self._memory.items()
+            if not self._is_expired(value)
+        }
+        return {
+            "entries": len(active_entries),
+            "ttl_seconds": self.ttl_seconds,
+            "max_entries": self.max_entries,
+            "path": str(self.cache_path),
+            "persistence_enabled": self._persistence_enabled,
+        }
+
+    def _is_expired(self, entry: Dict[str, Any]) -> bool:
+        ttl = entry.get("ttl_seconds", self.ttl_seconds)
+        created_at = entry.get("created_at", 0)
+        return time.time() > (created_at + ttl)
+
+    def _enforce_max_entries(self) -> None:
+        while len(self._memory) > self.max_entries:
+            oldest_key = min(
+                self._memory,
+                key=lambda key: self._memory[key].get("created_at", 0),
+            )
+            self._memory.pop(oldest_key, None)
+
+    def _load(self) -> None:
+        if not self.cache_path.exists():
+            return
+        try:
+            data = json.loads(self.cache_path.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                self._memory = data
+        except Exception:
+            self._memory = {}
+
+    def _persist(self) -> None:
+        payload = json.dumps(self._memory, indent=2, sort_keys=True, default=str)
+        try:
+            self.cache_path.write_text(payload, encoding="utf-8")
+        except OSError:
+            self._persistence_enabled = False
+
+
+
+================================================================================
+FILE: web/rate_limiter.py
+================================================================================
+
+"""Rate limiting primitives for semantic web extraction."""
+
+from __future__ import annotations
+
+import asyncio
+import time
+from contextlib import asynccontextmanager
+from typing import Dict, Optional
+
+from config.web import WEB_CONFIG
+from .utils import domain_of
+
+
+class DomainRateLimiter:
+    """Per-domain cooldown and concurrency limiter."""
+
+    def __init__(
+        self,
+        cooldown_seconds: Optional[float] = None,
+        max_concurrency: Optional[int] = None,
+    ):
+        self.cooldown_seconds = cooldown_seconds or WEB_CONFIG["rate_limit_per_domain_seconds"]
+        self.max_concurrency = max_concurrency or WEB_CONFIG["domain_concurrency"]
+        self._semaphores: Dict[str, asyncio.Semaphore] = {}
+        self._last_access: Dict[str, float] = {}
+
+    @asynccontextmanager
+    async def limit(self, url: str):
+        domain = domain_of(url)
+        semaphore = self._semaphores.setdefault(domain, asyncio.Semaphore(self.max_concurrency))
+
+        async with semaphore:
+            await self._wait_cooldown(domain)
+            try:
+                yield
+            finally:
+                self._last_access[domain] = time.monotonic()
+
+    async def _wait_cooldown(self, domain: str) -> None:
+        previous = self._last_access.get(domain)
+        if previous is None:
+            return
+        elapsed = time.monotonic() - previous
+        if elapsed < self.cooldown_seconds:
+            await asyncio.sleep(self.cooldown_seconds - elapsed)
+
+
+
+
+================================================================================
+FILE: web/web_observer.py
+================================================================================
+
+"""Quality checks for semantic extraction results."""
+
+from __future__ import annotations
+
+from typing import Any, Dict, Optional, Type
+
+
+class WebObserver:
+    """Validate extraction completeness and schema integrity."""
+
+    def assess(
+        self,
+        payload: Any,
+        schema: Optional[Type[Any]] = None,
+    ) -> Dict[str, Any]:
+        issues = []
+        quality = 1.0
+
+        if payload is None:
+            issues.append("empty_payload")
+            quality = 0.0
+        elif isinstance(payload, dict):
+            if not payload:
+                issues.append("empty_mapping")
+                quality -= 0.6
+            text_fields = [
+                value for value in payload.values()
+                if isinstance(value, str) and value.strip()
+            ]
+            if not text_fields:
+                issues.append("no_text_fields")
+                quality -= 0.3
+        elif hasattr(payload, "model_dump"):
+            model_dump = payload.model_dump()
+            if not any(isinstance(value, str) and value.strip() for value in model_dump.values()):
+                issues.append("schema_has_no_populated_text_fields")
+                quality -= 0.3
+
+        if schema is not None and payload is not None:
+            try:
+                if hasattr(schema, "model_validate"):
+                    schema.model_validate(
+                        payload if isinstance(payload, dict) else payload.model_dump()
+                    )
+            except Exception as exc:
+                issues.append(f"schema_validation_failed:{exc}")
+                quality -= 0.5
+
+        quality = max(0.0, min(1.0, quality))
+        return {
+            "success": quality >= 0.5 and not any(issue.startswith("schema_validation_failed") for issue in issues),
+            "quality_score": quality,
+            "issues": issues,
+        }
+
+
+
+================================================================================
+FILE: web/schema_service.py
+================================================================================
+
+"""Schema registry and validation helpers for semantic extraction."""
+
+from __future__ import annotations
+
+from typing import Any, Optional, Type
+
+from pydantic import BaseModel, ValidationError
+
+from schemas import SCHEMA_REGISTRY
+
+
+class SchemaService:
+    """Resolve and validate extraction schemas."""
+
+    def resolve(self, schema: Optional[Any]) -> Optional[Type[BaseModel]]:
+        if schema is None:
+            return None
+        if isinstance(schema, str):
+            resolved = SCHEMA_REGISTRY.get(schema)
+            if resolved is None:
+                raise ValueError(f"Unknown schema '{schema}'. Available: {sorted(SCHEMA_REGISTRY)}")
+            return resolved
+        if isinstance(schema, type) and issubclass(schema, BaseModel):
+            return schema
+        raise TypeError("schema must be None, a schema name, or a Pydantic BaseModel class")
+
+    def validate(self, schema: Optional[Any], payload: Any) -> Any:
+        resolved = self.resolve(schema)
+        if resolved is None:
+            return payload
+        if isinstance(payload, resolved):
+            return payload
+        return resolved.model_validate(payload)
+
+    def dump(self, payload: Any) -> Any:
+        if hasattr(payload, "model_dump"):
+            return payload.model_dump()
+        return payload
+
+    def json_schema(self, schema: Optional[Any]) -> Optional[dict]:
+        resolved = self.resolve(schema)
+        if resolved is None:
+            return None
+        return resolved.model_json_schema()
+
+    def schema_name(self, schema: Optional[Any]) -> Optional[str]:
+        resolved = self.resolve(schema)
+        if resolved is None:
+            return None
+        return resolved.__name__
+
+
+
+
+================================================================================
+FILE: web/ollama_client.py
+================================================================================
+
+"""Local-first Ollama client for semantic extraction."""
+
+from __future__ import annotations
+
+import json
+from typing import Any, Dict, Optional
+from urllib import error as urllib_error
+from urllib import request as urllib_request
+
+from config import endpoint_of
+from config.web import DEFAULT_EMBEDDING_MODEL, DEFAULT_OLLAMA_MODEL, WEB_CONFIG
+
+
+class OllamaClient:
+    """Thin client around the Ollama HTTP API with retry support."""
+
+    def __init__(
+        self,
+        base_url: Optional[str] = None,
+        generate_url: Optional[str] = None,
+        model: Optional[str] = None,
+        timeout: Optional[int] = None,
+        max_retries: Optional[int] = None,
+    ):
+        self.base_url = base_url or endpoint_of("ollama")
+        self.generate_url = generate_url or endpoint_of("ollama_generate")
+        self.model = model or DEFAULT_OLLAMA_MODEL
+        self.timeout = timeout or WEB_CONFIG["timeout"]
+        self.max_retries = max_retries or WEB_CONFIG["max_retries"]
+
+    def is_ollama_alive(self) -> bool:
+        success, _, _ = self._request_json("GET", f"{self.base_url}/api/tags")
+        return success
+
+    def list_models(self) -> Dict[str, Any]:
+        success, payload, error = self._request_json("GET", f"{self.base_url}/api/tags")
+        return {
+            "success": success,
+            "result": payload,
+            "error": error,
+        }
+
+    def generate(
+        self,
+        prompt: str,
+        model: Optional[str] = None,
+        system: Optional[str] = None,
+        stream: bool = False,
+        options: Optional[Dict[str, Any]] = None,
+        format_schema: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        payload = {
+            "model": model or self.model,
+            "prompt": prompt,
+            "stream": stream,
+            "options": options or {},
+        }
+        if system:
+            payload["system"] = system
+        if format_schema:
+            payload["format"] = format_schema
+
+        success, response, error = self._request_json("POST", self.generate_url, payload)
+        return {
+            "success": success,
+            "result": response,
+            "error": error,
+        }
+
+    def embed(
+        self,
+        text: str,
+        model: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        payload = {
+            "model": model or DEFAULT_EMBEDDING_MODEL,
+            "input": text,
+        }
+        success, response, error = self._request_json("POST", f"{self.base_url}/api/embed", payload)
+        return {
+            "success": success,
+            "result": response,
+            "error": error,
+        }
+
+    def _request_json(
+        self,
+        method: str,
+        url: str,
+        payload: Optional[Dict[str, Any]] = None,
+    ) -> tuple[bool, Optional[Dict[str, Any]], Optional[str]]:
+        body = None
+        headers = {"Content-Type": "application/json"}
+        if payload is not None:
+            body = json.dumps(payload).encode("utf-8")
+
+        last_error = None
+        for _ in range(self.max_retries):
+            try:
+                request = urllib_request.Request(url, data=body, headers=headers, method=method)
+                with urllib_request.urlopen(request, timeout=self.timeout) as response:
+                    raw = response.read().decode("utf-8", errors="replace")
+                    return True, json.loads(raw or "{}"), None
+            except urllib_error.URLError as exc:
+                last_error = f"Ollama request failed: {exc.reason}"
+            except Exception as exc:
+                last_error = f"Ollama request failed: {exc}"
+        return False, None, last_error
+
+
+
+
+================================================================================
+FILE: web/playwright_manager.py
+================================================================================
+
+"""Playwright-backed page loader for semantic extraction."""
+
+from __future__ import annotations
+
+import asyncio
+from dataclasses import dataclass
+from typing import Any, Dict, Optional
+
+from config.web import WEB_CONFIG
+
+
+@dataclass
+class PageLoadResult:
+    url: str
+    title: str
+    html: str
+    text: str
+    status: int
+    backend: str
+
+
+class PlaywrightManager:
+    """Manage local page loading with Playwright and requests fallback."""
+
+    def __init__(
+        self,
+        headless: Optional[bool] = None,
+        timeout_ms: Optional[int] = None,
+    ):
+        self.headless = WEB_CONFIG["headless"] if headless is None else headless
+        self.timeout_ms = timeout_ms or WEB_CONFIG["page_ready_timeout"]
+
+    async def fetch_page(
+        self,
+        url: str,
+        wait_until: Optional[str] = None,
+    ) -> PageLoadResult:
+        try:
+            from playwright.async_api import async_playwright
+        except ImportError:
+            return await self._fetch_with_requests(url)
+
+        wait_until = wait_until or WEB_CONFIG["playwright_wait_until"]
+        try:
+            async with async_playwright() as playwright:
+                browser = await playwright.chromium.launch(headless=self.headless)
+                page = await browser.new_page()
+                try:
+                    response = await page.goto(url, wait_until=wait_until, timeout=self.timeout_ms)
+                    await page.wait_for_timeout(300)
+                    html = await page.content()
+                    title = await page.title()
+                    text = await page.locator("body").inner_text(timeout=self.timeout_ms)
+                    status = response.status if response else 200
+                    return PageLoadResult(
+                        url=page.url,
+                        title=title,
+                        html=html,
+                        text=text,
+                        status=status,
+                        backend="playwright",
+                    )
+                finally:
+                    await browser.close()
+        except Exception:
+            return await self._fetch_with_requests(url)
+
+    async def _fetch_with_requests(self, url: str) -> PageLoadResult:
+        import requests
+
+        response = requests.get(url, timeout=WEB_CONFIG["request_timeout"])
+        response.raise_for_status()
+        html = response.text
+        try:
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(html, "lxml")
+            text = soup.get_text(separator=" ", strip=True)
+            title = soup.title.string.strip() if soup.title and soup.title.string else ""
+        except ImportError:
+            import re
+
+            text = " ".join(re.sub(r"<[^>]+>", " ", html).split())
+            title = ""
+        return PageLoadResult(
+            url=response.url,
+            title=title,
+            html=html,
+            text=text,
+            status=response.status_code,
+            backend="requests_fallback",
+        )
+
+
+
+================================================================================
+FILE: web/search_service.py
+================================================================================
+
+"""Search primitives for the semantic web subsystem."""
+
+from __future__ import annotations
+
+from typing import Any, Dict, Optional
+
+from config.web import WEB_CONFIG
+from schemas import SearchResultItem, SearchResultsPage
+
+
+class SearchService:
+    """Search the web using the existing API backend infrastructure."""
+
+    def __init__(self, provider: Optional[str] = None):
+        self.provider = provider or WEB_CONFIG["search_provider"]
+
+    def search(
+        self,
+        query: str,
+        limit: int = 5,
+        provider: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        from web_system.core.api_backend import ApiSearchBackend
+
+        backend = ApiSearchBackend(provider=provider or self.provider)
+        success, results, error = backend.search(query, num_results=limit)
+        if not success:
+            return {"success": False, "result": None, "error": error}
+
+        page = SearchResultsPage(
+            query=query,
+            provider=provider or self.provider,
+            results=[
+                SearchResultItem(
+                    title=result.title,
+                    url=result.url,
+                    snippet=result.snippet,
+                    position=result.position,
+                    source=result.source,
+                )
+                for result in (results or [])
+            ],
+        )
+        return {"success": True, "result": page, "error": None}
+
+
+
+
+================================================================================
+FILE: web/graph_manager.py
+================================================================================
+
+"""Graph orchestration for semantic web extraction."""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import time
+from typing import Any, Dict, Iterable, List, Optional
+
+from config.web import WEB_CONFIG
+from .ollama_client import OllamaClient
+from .playwright_manager import PlaywrightManager
+from .rate_limiter import DomainRateLimiter
+from .schema_service import SchemaService
+from .utils import compact_text, normalize_url, optional_import_error
+from .web_observer import WebObserver
+
+
+class GraphManager:
+    """Create and execute semantic extraction graphs with fallback handling."""
+
+    def __init__(
+        self,
+        ollama_client: Optional[OllamaClient] = None,
+        playwright_manager: Optional[PlaywrightManager] = None,
+        schema_service: Optional[SchemaService] = None,
+        observer: Optional[WebObserver] = None,
+        rate_limiter: Optional[DomainRateLimiter] = None,
+    ):
+        self.ollama = ollama_client or OllamaClient()
+        self.playwright = playwright_manager or PlaywrightManager()
+        self.schemas = schema_service or SchemaService()
+        self.observer = observer or WebObserver()
+        self.rate_limiter = rate_limiter or DomainRateLimiter()
+        self.metrics = {
+            "smart_scraper_runs": 0,
+            "search_graph_runs": 0,
+            "fallback_runs": 0,
+            "failures": 0,
+            "last_duration_seconds": 0.0,
+        }
+
+    async def run_semantic_extract(
+        self,
+        url: str,
+        prompt: str,
+        schema: Optional[Any] = None,
+    ) -> Dict[str, Any]:
+        started = time.perf_counter()
+        normalized_url = normalize_url(url)
+
+        async with self.rate_limiter.limit(normalized_url):
+            last_error = None
+            for attempt in range(1, WEB_CONFIG["max_retries"] + 1):
+                try:
+                    result = await self._run_scrapegraph_smart_scraper(normalized_url, prompt, schema)
+                    self.metrics["smart_scraper_runs"] += 1
+                    self.metrics["last_duration_seconds"] = time.perf_counter() - started
+                    return result
+                except Exception as exc:
+                    last_error = str(exc)
+                    await asyncio.sleep((attempt - 1) * WEB_CONFIG["retry_backoff_seconds"])
+
+            try:
+                fallback_result = await self._run_local_semantic_extract(normalized_url, prompt, schema)
+            except Exception as exc:
+                fallback_result = {
+                    "success": False,
+                    "result": None,
+                    "error": str(exc),
+                    "metadata": {"strategy": "fallback_failed"},
+                }
+            self.metrics["fallback_runs"] += 1
+            self.metrics["last_duration_seconds"] = time.perf_counter() - started
+            if not fallback_result["success"]:
+                self.metrics["failures"] += 1
+                fallback_result["error"] = fallback_result.get("error") or last_error
+            return fallback_result
+
+    async def run_search_graph(
+        self,
+        query: str,
+        prompt: str,
+        urls: Iterable[str],
+        schema: Optional[Any] = None,
+    ) -> Dict[str, Any]:
+        started = time.perf_counter()
+        results = await asyncio.gather(
+            *[
+                self.run_semantic_extract(url=url, prompt=prompt, schema=schema)
+                for url in urls
+            ],
+            return_exceptions=True,
+        )
+        self.metrics["search_graph_runs"] += 1
+        self.metrics["last_duration_seconds"] = time.perf_counter() - started
+
+        normalized_results = []
+        for result in results:
+            if isinstance(result, Exception):
+                normalized_results.append({"success": False, "error": str(result), "result": None})
+            else:
+                normalized_results.append(result)
+
+        return {
+            "success": any(item.get("success") for item in normalized_results),
+            "result": {
+                "query": query,
+                "results": normalized_results,
+            },
+            "error": None if any(item.get("success") for item in normalized_results) else "all extractions failed",
+        }
+
+    async def _run_scrapegraph_smart_scraper(
+        self,
+        url: str,
+        prompt: str,
+        schema: Optional[Any] = None,
+    ) -> Dict[str, Any]:
+        schema_cls = self.schemas.resolve(schema)
+
+        try:
+            from scrapegraphai.graphs import SmartScraperGraph
+        except ImportError as exc:
+            raise RuntimeError(f"ScrapeGraphAI unavailable: {exc}") from exc
+
+        config = {
+            "llm": {
+                "model": f"ollama/{WEB_CONFIG['ollama_model']}",
+                "base_url": WEB_CONFIG["ollama_base_url"],
+                "model_tokens": 4096,
+                "temperature": 0,
+            },
+            "headless": WEB_CONFIG["headless"],
+            "verbose": False,
+        }
+
+        kwargs = {
+            "prompt": prompt,
+            "source": url,
+            "config": config,
+        }
+        if schema_cls is not None:
+            kwargs["schema"] = schema_cls
+
+        graph = SmartScraperGraph(**kwargs)
+        raw_result = await asyncio.to_thread(graph.run)
+        payload = self.schemas.dump(raw_result)
+        validated = self.schemas.validate(schema_cls, payload)
+        observation = self.observer.assess(validated, schema_cls)
+        return {
+            "success": observation["success"],
+            "result": self.schemas.dump(validated),
+            "error": None if observation["success"] else f"observer rejected extraction: {observation['issues']}",
+            "metadata": {
+                "strategy": "scrapegraph_smart_scraper",
+                "quality": observation,
+            },
+        }
+
+    async def _run_local_semantic_extract(
+        self,
+        url: str,
+        prompt: str,
+        schema: Optional[Any] = None,
+    ) -> Dict[str, Any]:
+        schema_cls = self.schemas.resolve(schema)
+        page = await self.playwright.fetch_page(url)
+        text = self._html_to_text(page.html)
+        text = compact_text(text, WEB_CONFIG["max_page_text_chars"])
+
+        schema_json = self.schemas.json_schema(schema_cls)
+        llm_prompt = (
+            f"Extract structured information from the following webpage.\n"
+            f"URL: {page.url}\n"
+            f"Title: {page.title}\n"
+            f"Instruction: {prompt}\n"
+            f"Return only JSON matching the schema when provided.\n\n"
+            f"CONTENT:\n{text}"
+        )
+        generation = self.ollama.generate(
+            prompt=llm_prompt,
+            format_schema=schema_json,
+            options={"temperature": 0},
+        )
+        if not generation["success"]:
+            return {
+                "success": False,
+                "result": None,
+                "error": generation["error"],
+                "metadata": {"strategy": page.backend},
+            }
+
+        response_text = (
+            generation["result"].get("response")
+            if isinstance(generation["result"], dict)
+            else None
+        )
+        payload = self._parse_response_payload(response_text, page, prompt)
+        validated = self.schemas.validate(schema_cls, payload) if schema_cls is not None else payload
+        observation = self.observer.assess(validated, schema_cls)
+        return {
+            "success": observation["success"],
+            "result": self.schemas.dump(validated),
+            "error": None if observation["success"] else f"observer rejected extraction: {observation['issues']}",
+            "metadata": {
+                "strategy": page.backend,
+                "quality": observation,
+                "page_title": page.title,
+            },
+        }
+
+    def _parse_response_payload(self, response_text: Optional[str], page: Any, prompt: str) -> Dict[str, Any]:
+        if not response_text:
+            return {
+                "title": page.title,
+                "summary": "",
+                "key_points": [],
+                "metadata": {"url": page.url, "prompt": prompt},
+            }
+        try:
+            return json.loads(response_text)
+        except json.JSONDecodeError:
+            return {
+                "title": page.title,
+                "summary": response_text,
+                "key_points": [],
+                "metadata": {"url": page.url, "prompt": prompt},
+            }
+
+    @staticmethod
+    def _html_to_text(html: str) -> str:
+        try:
+            from bs4 import BeautifulSoup
+        except ImportError:
+            import re
+
+            stripped = re.sub(r"<[^>]+>", " ", html or "")
+            return " ".join(stripped.split())
+
+        soup = BeautifulSoup(html, "lxml")
+        return soup.get_text(separator=" ", strip=True)
+
+
+
+================================================================================
+FILE: web/extraction_service.py
+================================================================================
+
+"""Typed extraction primitives built on top of the graph manager."""
+
+from __future__ import annotations
+
+from typing import Any, Dict, Optional
+
+from schemas import ArticleSummary, GithubRepository, PersonProfile, ProductInfo, ResearchPaper
+
+
+class ExtractionService:
+    """Small composable extraction helpers for common content types."""
+
+    def __init__(self, scrape_service: Any):
+        self.scrape_service = scrape_service
+
+    def extract_article(self, url: str) -> Dict[str, Any]:
+        prompt = "Extract the article title, author, publication, publication date, concise summary, key points, and main topics."
+        return self.scrape_service.semantic_extract(url, prompt, schema=ArticleSummary)
+
+    def extract_product(self, url: str) -> Dict[str, Any]:
+        prompt = "Extract the product name, brand, pricing, availability, rating, description, major features, category, and canonical source URL."
+        return self.scrape_service.semantic_extract(url, prompt, schema=ProductInfo)
+
+    def extract_research(self, url: str) -> Dict[str, Any]:
+        prompt = "Extract the paper title, authors, abstract, methods, key findings, publication year, venue, DOI, and paper URL."
+        return self.scrape_service.semantic_extract(url, prompt, schema=ResearchPaper)
+
+    def extract_person(self, url: str) -> Dict[str, Any]:
+        prompt = "Extract the person's full name, role, organization, location, biography, skills, and relevant public links."
+        return self.scrape_service.semantic_extract(url, prompt, schema=PersonProfile)
+
+    def extract_github_repo(self, url: str) -> Dict[str, Any]:
+        prompt = "Extract the repository name, owner, description, primary language, stars, forks, topics, license, default branch, and canonical repo URL."
+        return self.scrape_service.semantic_extract(url, prompt, schema=GithubRepository)
+
+    def summarize_page(self, url: str) -> Dict[str, Any]:
+        prompt = "Summarize the page clearly, extract the main points, and return a concise structured summary."
+        return self.scrape_service.semantic_extract(url, prompt, schema="generic")
+
+
+
+
+================================================================================
+FILE: web/scrape_service.py
+================================================================================
+
+"""Main semantic extraction interface for Elzyra."""
+
+from __future__ import annotations
+
+from typing import Any, Dict, Iterable, Optional
+
+from router.message import Message, Response
+
+from config.web import WEB_CONFIG
+from .cache import WebCache
+from .extraction_service import ExtractionService
+from .graph_manager import GraphManager
+from .schema_service import SchemaService
+from .search_service import SearchService
+from .utils import cache_key_for, run_sync
+from .web_observer import WebObserver
+
+
+class SemanticScrapeService:
+    """Production-facing semantic web extraction subsystem."""
+
+    def __init__(
+        self,
+        graph_manager: Optional[GraphManager] = None,
+        search_service: Optional[SearchService] = None,
+        schema_service: Optional[SchemaService] = None,
+        observer: Optional[WebObserver] = None,
+        cache: Optional[WebCache] = None,
+    ):
+        self.schemas = schema_service or SchemaService()
+        self.observer = observer or WebObserver()
+        self.cache = cache or WebCache()
+        self.graphs = graph_manager or GraphManager(schema_service=self.schemas, observer=self.observer)
+        self.search = search_service or SearchService()
+        self.extractors = ExtractionService(self)
+
+    def semantic_extract(
+        self,
+        url: str,
+        prompt: str,
+        schema: Optional[Any] = None,
+    ) -> Dict[str, Any]:
+        key = cache_key_for("semantic_extract", url, prompt, self.schemas.schema_name(schema))
+        cached = self._cache_get(key)
+        if cached:
+            return cached
+
+        result = run_sync(self.graphs.run_semantic_extract(url=url, prompt=prompt, schema=schema))
+        self._cache_set(key, result)
+        return result
+
+    def search_and_extract(
+        self,
+        query: str,
+        prompt: str,
+        limit: int = 5,
+        schema: Optional[Any] = None,
+    ) -> Dict[str, Any]:
+        search_result = self.search.search(query=query, limit=limit)
+        if not search_result["success"]:
+            return search_result
+
+        urls = [str(item.url) for item in search_result["result"].results]
+        result = run_sync(self.graphs.run_search_graph(query=query, prompt=prompt, urls=urls, schema=schema))
+        result["result"]["search_results"] = search_result["result"].model_dump()
+        return result
+
+    def extract_multiple(
+        self,
+        urls: Iterable[str],
+        prompt: str,
+        schema: Optional[Any] = None,
+    ) -> Dict[str, Any]:
+        result = run_sync(self.graphs.run_search_graph(query="multiple", prompt=prompt, urls=list(urls), schema=schema))
+        return result
+
+    def extract_article(self, url: str) -> Dict[str, Any]:
+        return self.extractors.extract_article(url)
+
+    def extract_product(self, url: str) -> Dict[str, Any]:
+        return self.extractors.extract_product(url)
+
+    def extract_research(self, url: str) -> Dict[str, Any]:
+        return self.extractors.extract_research(url)
+
+    def summarize_page(self, url: str) -> Dict[str, Any]:
+        return self.extractors.summarize_page(url)
+
+    def _cache_get(self, key: str) -> Optional[Dict[str, Any]]:
+        if not WEB_CONFIG["cache_enabled"]:
+            return None
+        cached = self.cache.get(key)
+        if isinstance(cached, dict):
+            return cached
+        return None
+
+    def _cache_set(self, key: str, value: Dict[str, Any]) -> None:
+        if WEB_CONFIG["cache_enabled"] and value.get("success"):
+            self.cache.set(key, value)
+
+
+def web_service(message: Message, service: Optional[SemanticScrapeService] = None) -> Response:
+    """Router bridge for the semantic web subsystem."""
+    service = service or SemanticScrapeService()
+    action = message.payload.get("action")
+    data = message.payload.get("data", {})
+
+    handlers = {
+        "semantic_extract": lambda: service.semantic_extract(
+            url=data.get("url", ""),
+            prompt=data.get("prompt", ""),
+            schema=data.get("schema"),
+        ),
+        "search_and_extract": lambda: service.search_and_extract(
+            query=data.get("query", ""),
+            prompt=data.get("prompt", ""),
+            limit=data.get("limit", WEB_CONFIG["default_result_limit"]),
+            schema=data.get("schema"),
+        ),
+        "extract_article": lambda: service.extract_article(data.get("url", "")),
+        "extract_product": lambda: service.extract_product(data.get("url", "")),
+        "extract_research": lambda: service.extract_research(data.get("url", "")),
+        "summarize_page": lambda: service.summarize_page(data.get("url", "")),
+    }
+
+    if action not in handlers:
+        return Response(
+            source="web",
+            success=False,
+            error=f"unknown web action: {action}. Available: {sorted(handlers)}",
+        )
+
+    try:
+        result = handlers[action]()
+        return Response(
+            source="web",
+            success=result.get("success", False),
+            result=result,
+            error=result.get("error"),
+        )
+    except Exception as exc:
+        return Response(
+            source="web",
+            success=False,
+            error=f"web service error: {exc}",
+        )
+
+
+
+
+================================================================================
+FILE: web/__init__.py
+================================================================================
+
+"""Elzyra semantic web extraction subsystem."""
+
+from router import register_service
+
+from .cache import WebCache
+from .graph_manager import GraphManager
+from .ollama_client import OllamaClient
+from .playwright_manager import PageLoadResult, PlaywrightManager
+from .schema_service import SchemaService
+from .scrape_service import SemanticScrapeService, web_service
+from .search_service import SearchService
+from .web_observer import WebObserver
+
+SCRAPE_SERVICE = SemanticScrapeService()
+
+
+def semantic_extract(url: str, prompt: str, schema=None):
+    return SCRAPE_SERVICE.semantic_extract(url, prompt, schema=schema)
+
+
+def search_and_extract(query: str, prompt: str, limit: int = 5, schema=None):
+    return SCRAPE_SERVICE.search_and_extract(query, prompt, limit=limit, schema=schema)
+
+
+def extract_article(url: str):
+    return SCRAPE_SERVICE.extract_article(url)
+
+
+def extract_product(url: str):
+    return SCRAPE_SERVICE.extract_product(url)
+
+
+def extract_research(url: str):
+    return SCRAPE_SERVICE.extract_research(url)
+
+
+def summarize_page(url: str):
+    return SCRAPE_SERVICE.summarize_page(url)
+
+
+register_service("web", lambda message: web_service(message, service=SCRAPE_SERVICE))
+
+__all__ = [
+    "SCRAPE_SERVICE",
+    "GraphManager",
+    "OllamaClient",
+    "PageLoadResult",
+    "PlaywrightManager",
+    "SchemaService",
+    "SearchService",
+    "SemanticScrapeService",
+    "WebCache",
+    "WebObserver",
+    "extract_article",
+    "extract_product",
+    "extract_research",
+    "search_and_extract",
+    "semantic_extract",
+    "summarize_page",
+]
+
+
+
+
+================================================================================
+FILE: web/README.md
+================================================================================
+
+# Web Subsystem
+
+This package is Elzyra's semantic web extraction subsystem. It is separate from UI automation.
+
+## Separation of concerns
+
+- `ui/`: browser tabs, CDP, workspace-controlled interactive browsing
+- `web/`: semantic extraction, search, schema validation, caching, local-first research
+
+The subsystem does not click through user sessions or drive provider tabs. It extracts structured information from web pages and search results.
+
+## Architecture
+
+- `scrape_service.py`: first-class entry point for semantic extraction
+- `search_service.py`: search primitives
+- `extraction_service.py`: typed extraction helpers
+- `schema_service.py`: schema resolution and validation
+- `graph_manager.py`: ScrapeGraphAI and fallback orchestration
+- `ollama_client.py`: local model client
+- `playwright_manager.py`: JS-capable page loading
+- `web_observer.py`: extraction quality checks
+- `cache.py`: TTL cache
+- `rate_limiter.py`: per-domain throttling
+- `utils.py`: shared helpers
+
+## Execution model
+
+Primary path:
+1. search or direct URL input
+2. semantic extraction via ScrapeGraphAI
+3. schema validation
+4. observer quality checks
+5. cached structured result
+
+Fallback path:
+1. Playwright or requests loads the page
+2. local Ollama model extracts structured JSON
+3. schema validation and observer checks run before success is returned
+
+## Local-first design
+
+The subsystem prefers:
+- local Ollama models
+- local Playwright Chromium
+- local cache persistence
+
+Cloud search providers can still be used through the existing API backend, but the extraction path is designed to work locally first.
+
+## Scaling direction
+
+The current design keeps primitives small so Scout and Brain can compose them:
+- `semantic_extract`
+- `search_and_extract`
+- `extract_article`
+- `extract_product`
+- `extract_research`
+- `summarize_page`
+
+Future graph types can be added in `graph_manager.py` without coupling them to UI automation.
+
+
+
+================================================================================
+FILE: web/tests/__init__.py
+================================================================================
+
+"""Tests for Elzyra's semantic web subsystem."""
+
+
+
+
+================================================================================
+FILE: web/tests/test_cache.py
+================================================================================
+
+from web.cache import WebCache
+
+
+def test_cache_round_trip():
+    cache = WebCache(ttl_seconds=60, max_entries=10)
+    cache.clear()
+    cache.set("alpha", {"ok": True})
+    assert cache.get("alpha") == {"ok": True}
+
+
+
+
+================================================================================
+FILE: web/tests/test_schema_validation.py
+================================================================================
+
+from schemas import ArticleSummary
+from web.schema_service import SchemaService
+
+
+def test_schema_validation_round_trip():
+    service = SchemaService()
+    payload = {"title": "T", "summary": "S", "key_points": []}
+    model = service.validate(ArticleSummary, payload)
+    assert model.title == "T"
+
+
+
+
+================================================================================
+FILE: web/tests/test_ollama_client.py
+================================================================================
+
+from web.ollama_client import OllamaClient
+
+
+def test_list_models_uses_request_json():
+    client = OllamaClient()
+    client._request_json = lambda method, url, payload=None: (True, {"models": [{"name": "llama"}]}, None)
+    result = client.list_models()
+    assert result["success"] is True
+    assert result["result"]["models"][0]["name"] == "llama"
+
+
+
+
+================================================================================
+FILE: web/tests/test_playwright_manager.py
+================================================================================
+
+import asyncio
+
+from web.playwright_manager import PlaywrightManager
+
+
+def test_playwright_manager_fallback_fetch():
+    manager = PlaywrightManager()
+
+    async def fake_fetch(url):
+        class FakeResult:
+            pass
+
+        result = FakeResult()
+        result.url = url
+        result.title = "Example"
+        result.html = "<html><title>Example</title><body>Hello</body></html>"
+        result.text = "Hello"
+        result.status = 200
+        result.backend = "requests_fallback"
+        return result
+
+    manager._fetch_with_requests = fake_fetch
+    result = asyncio.run(manager._fetch_with_requests("https://example.com"))
+    assert result.title == "Example"
+
+
+
+================================================================================
+FILE: web/tests/test_graph_manager.py
+================================================================================
+
+import asyncio
+
+from schemas import ArticleSummary
+from web.graph_manager import GraphManager
+
+
+def test_graph_manager_fallback_path():
+    manager = GraphManager()
+
+    async def fake_page(url):
+        class Page:
+            pass
+
+        page = Page()
+        page.title = "Example"
+        page.url = url
+        page.html = "<html><body>Example article text</body></html>"
+        page.text = "Example article text"
+        page.status = 200
+        page.backend = "requests_fallback"
+        return page
+
+    manager.playwright.fetch_page = fake_page
+    manager.ollama.generate = lambda **kwargs: {
+        "success": True,
+        "result": {"response": '{"title":"Example","summary":"Summary","key_points":["One"]}'},
+        "error": None,
+    }
+
+    result = asyncio.run(manager._run_local_semantic_extract("https://example.com", "summarize", ArticleSummary))
+    assert result["success"] is True
+    assert result["result"]["title"] == "Example"
+
+
+
+================================================================================
+FILE: web/tests/test_scrape_service.py
+================================================================================
+
+from web.scrape_service import SemanticScrapeService
+
+
+def test_semantic_extract_caches_success():
+    service = SemanticScrapeService()
+    service.cache.clear()
+    calls = {"count": 0}
+
+    async def fake_run(url, prompt, schema=None):
+        calls["count"] += 1
+        return {"success": True, "result": {"url": url, "summary": prompt}, "error": None}
+
+    service.graphs.run_semantic_extract = fake_run
+
+    first = service.semantic_extract("https://example.com", "extract")
+    second = service.semantic_extract("https://example.com", "extract")
+
+    assert first["success"] is True
+    assert second["success"] is True
+    assert calls["count"] == 1
+
+
+
+================================================================================
+FILE: web/tests/README.md
+================================================================================
+
+# Web Tests
+
+These tests cover the semantic web subsystem:
+- cache behavior
+- schema validation
+- Ollama client behavior
+- Playwright/page loading behavior
+- graph fallback behavior
+- scrape service caching
 
 
 
@@ -43509,358 +45302,6 @@ Use this folder for tools that interact with the local machine outside browser-s
 
 
 ================================================================================
-FILE: tools/web/__init__.py
-================================================================================
-
-"""
-Web search and interaction tools.
-Integrates web module with tools registry.
-"""
-
-from typing import Dict, Any, Optional
-from tools.tool import Tool
-import sys
-import os
-
-# Add parent directory to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
-
-from web_system.core.web import WebInteractor
-
-
-class WebSearchTool(Tool):
-    """Search the web using multiple providers."""
-
-    def __init__(self):
-        super().__init__(
-            name="web_search",
-            platform="web",
-            description="Search the web using APIs (SerpAPI, Google, Bing, DuckDuckGo, Brave)"
-        )
-        self.web = WebInteractor(backend="api", search_provider="serpapi")
-
-    def validate_input(self, data: Dict[str, Any]) -> tuple:
-        """Validate search input."""
-        if not isinstance(data, dict):
-            return False, "Input must be a dict"
-
-        if "query" not in data:
-            return False, "Missing required field: query"
-
-        if not isinstance(data["query"], str) or not data["query"].strip():
-            return False, "Query must be non-empty string"
-
-        return True, ""
-
-    def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute web search."""
-        query = data["query"]
-        num_results = data.get("num_results", 10)
-        provider = data.get("provider", "serpapi")
-
-        success, results, error = self.web.search(
-            query,
-            num_results=num_results,
-            provider=provider
-        )
-
-        return {
-            "success": success,
-            "result": {
-                "query": query,
-                "provider": provider,
-                "num_results": len(results) if results else 0,
-                "results": [
-                    {
-                        "title": r.title,
-                        "url": r.url,
-                        "snippet": r.snippet,
-                        "position": r.position,
-                    }
-                    for r in (results or [])
-                ],
-            },
-            "error": error,
-        }
-
-
-class FetchPageTool(Tool):
-    """Fetch and extract page content."""
-
-    def __init__(self):
-        super().__init__(
-            name="fetch_page",
-            platform="web",
-            description="Fetch and extract content from a web page (text, links, images, metadata)"
-        )
-        self.web = WebInteractor(backend="scraper")
-
-    def validate_input(self, data: Dict[str, Any]) -> tuple:
-        """Validate fetch input."""
-        if not isinstance(data, dict):
-            return False, "Input must be a dict"
-
-        if "url" not in data:
-            return False, "Missing required field: url"
-
-        if not isinstance(data["url"], str) or not data["url"].strip():
-            return False, "URL must be non-empty string"
-
-        return True, ""
-
-    def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute page fetch."""
-        url = data["url"]
-        extract_links = data.get("extract_links", True)
-        extract_images = data.get("extract_images", True)
-
-        success, content, error = self.web.get_page_content(
-            url,
-            extract_links=extract_links,
-            extract_images=extract_images
-        )
-
-        if not success:
-            return {
-                "success": False,
-                "result": None,
-                "error": error,
-            }
-
-        return {
-            "success": True,
-            "result": {
-                "url": content.url,
-                "title": content.title,
-                "text_length": len(content.text),
-                "text_preview": content.text[:500],
-                "links_count": len(content.links),
-                "images_count": len(content.images),
-                "status_code": content.status_code,
-                "metadata": content.metadata,
-            },
-            "error": None,
-        }
-
-
-class ExtractTextTool(Tool):
-    """Extract text content from a page."""
-
-    def __init__(self):
-        super().__init__(
-            name="extract_text",
-            platform="web",
-            description="Extract readable text from a web page"
-        )
-        self.web = WebInteractor(backend="scraper")
-
-    def validate_input(self, data: Dict[str, Any]) -> tuple:
-        """Validate input."""
-        if not isinstance(data, dict):
-            return False, "Input must be a dict"
-
-        if "url" not in data:
-            return False, "Missing required field: url"
-
-        return True, ""
-
-    def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute text extraction."""
-        url = data["url"]
-
-        success, text, error = self.web.extract_text(url)
-
-        return {
-            "success": success,
-            "result": {
-                "url": url,
-                "text": text,
-                "length": len(text) if text else 0,
-            } if success else None,
-            "error": error,
-        }
-
-
-class ExtractLinksTool(Tool):
-    """Extract links from a page."""
-
-    def __init__(self):
-        super().__init__(
-            name="extract_links",
-            platform="web",
-            description="Extract links from a web page"
-        )
-        self.web = WebInteractor(backend="scraper")
-
-    def validate_input(self, data: Dict[str, Any]) -> tuple:
-        """Validate input."""
-        if not isinstance(data, dict):
-            return False, "Input must be a dict"
-
-        if "url" not in data:
-            return False, "Missing required field: url"
-
-        return True, ""
-
-    def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute link extraction."""
-        url = data["url"]
-        internal_only = data.get("internal_only", False)
-
-        success, links, error = self.web.extract_links(url, internal_only=internal_only)
-
-        return {
-            "success": success,
-            "result": {
-                "url": url,
-                "links_count": len(links) if links else 0,
-                "links": [
-                    {
-                        "text": l.text,
-                        "url": l.url,
-                        "is_internal": l.is_internal,
-                    }
-                    for l in (links or [])[:20]  # Limit to first 20
-                ],
-            } if success else None,
-            "error": error,
-        }
-
-
-class BrowserNavigateTool(Tool):
-    """Navigate to a URL in browser."""
-
-    def __init__(self):
-        super().__init__(
-            name="browser_navigate",
-            platform="web",
-            description="Navigate to a URL in an automated browser"
-        )
-        self.web = WebInteractor(backend="browser")
-        self.web.start_browser()
-
-    def validate_input(self, data: Dict[str, Any]) -> tuple:
-        """Validate input."""
-        if not isinstance(data, dict):
-            return False, "Input must be a dict"
-
-        if "url" not in data:
-            return False, "Missing required field: url"
-
-        return True, ""
-
-    def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute navigation."""
-        url = data["url"]
-
-        success, current_url, error = self.web.navigate(url)
-
-        return {
-            "success": success,
-            "result": {
-                "requested_url": url,
-                "current_url": current_url,
-            } if success else None,
-            "error": error,
-        }
-
-
-class BrowserClickTool(Tool):
-    """Click an element in the browser."""
-
-    def __init__(self):
-        super().__init__(
-            name="browser_click",
-            platform="web",
-            description="Click an element in the browser by XPath or CSS selector"
-        )
-        self.web = WebInteractor(backend="browser")
-
-    def validate_input(self, data: Dict[str, Any]) -> tuple:
-        """Validate input."""
-        if not isinstance(data, dict):
-            return False, "Input must be a dict"
-
-        if "selector" not in data:
-            return False, "Missing required field: selector"
-
-        return True, ""
-
-    def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute click."""
-        selector = data["selector"]
-        by_type = data.get("by_type", "xpath")
-
-        if not self.web.is_browser_active:
-            self.web.start_browser()
-
-        success, result, error = self.web.click(selector, by_type=by_type)
-
-        return {
-            "success": success,
-            "result": {
-                "selector": selector,
-                "by_type": by_type,
-                "message": result.message if result else None,
-                "current_url": result.current_url if result else None,
-            } if success else None,
-            "error": error,
-        }
-
-
-class BrowserTypeTool(Tool):
-    """Type text in a browser field."""
-
-    def __init__(self):
-        super().__init__(
-            name="browser_type",
-            platform="web",
-            description="Type text into a form field in the browser"
-        )
-        self.web = WebInteractor(backend="browser")
-
-    def validate_input(self, data: Dict[str, Any]) -> tuple:
-        """Validate input."""
-        if not isinstance(data, dict):
-            return False, "Input must be a dict"
-
-        required = ["selector", "text"]
-        for field in required:
-            if field not in data:
-                return False, f"Missing required field: {field}"
-
-        return True, ""
-
-    def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute typing."""
-        selector = data["selector"]
-        text = data["text"]
-        by_type = data.get("by_type", "xpath")
-        clear_first = data.get("clear_first", True)
-
-        if not self.web.is_browser_active:
-            self.web.start_browser()
-
-        success, result, error = self.web.type_text(
-            selector,
-            text,
-            by_type=by_type,
-            clear_first=clear_first
-        )
-
-        return {
-            "success": success,
-            "result": {
-                "selector": selector,
-                "text_length": len(text),
-                "message": result.message if result else None,
-            } if success else None,
-            "error": error,
-        }
-
-
-
-================================================================================
 FILE: tools/web/README.md
 ================================================================================
 
@@ -43875,6 +45316,318 @@ This namespace groups tool definitions that call into the web stack.
 ## Purpose
 
 Use this folder for search, fetch, and browser-adjacent tool wrappers that depend on `web_system/`.
+
+
+
+================================================================================
+FILE: tools/web/__init__.py
+================================================================================
+
+"""
+Web tools for Elzyra.
+
+This module keeps semantic extraction separate from UI/CDP browser control.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Dict, Optional
+
+from tools.tool import Tool
+from web import SCRAPE_SERVICE
+from web_system.core.web import WebInteractor
+
+
+class _SemanticWebTool(Tool):
+    """Shared validation for semantic web tools."""
+
+    required_fields: tuple[str, ...] = ()
+
+    def validate_input(self, data: Dict[str, Any]) -> tuple[bool, str]:
+        if not isinstance(data, dict):
+            return False, "Input must be a dict"
+        for field in self.required_fields:
+            if field not in data or not data[field]:
+                return False, f"Missing required field: {field}"
+        return True, ""
+
+
+class WebSearchTool(_SemanticWebTool):
+    def __init__(self):
+        super().__init__(
+            name="web_search",
+            platform="web",
+            description="Search the web using API-backed search providers",
+        )
+        self.required_fields = ("query",)
+        self.web = WebInteractor(backend="api", search_provider="duckduckgo")
+
+    def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        success, results, error = self.web.search(
+            data["query"],
+            num_results=data.get("num_results", 10),
+            provider=data.get("provider", "duckduckgo"),
+        )
+        return {
+            "success": success,
+            "result": {
+                "query": data["query"],
+                "results": [
+                    {
+                        "title": result.title,
+                        "url": result.url,
+                        "snippet": result.snippet,
+                        "position": result.position,
+                    }
+                    for result in (results or [])
+                ],
+            } if success else None,
+            "error": error,
+        }
+
+
+class FetchPageTool(_SemanticWebTool):
+    def __init__(self):
+        super().__init__(
+            name="fetch_page",
+            platform="web",
+            description="Fetch page content with the legacy scraper backend",
+        )
+        self.required_fields = ("url",)
+        self.web = WebInteractor(backend="scraper")
+
+    def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        success, content, error = self.web.get_page_content(
+            data["url"],
+            extract_links=data.get("extract_links", True),
+            extract_images=data.get("extract_images", True),
+        )
+        return {
+            "success": success,
+            "result": {
+                "url": content.url,
+                "title": content.title,
+                "text": content.text,
+                "metadata": content.metadata,
+            } if success else None,
+            "error": error,
+        }
+
+
+class ExtractTextTool(_SemanticWebTool):
+    def __init__(self):
+        super().__init__(
+            name="extract_text",
+            platform="web",
+            description="Extract readable text from a page using the legacy scraper backend",
+        )
+        self.required_fields = ("url",)
+        self.web = WebInteractor(backend="scraper")
+
+    def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        success, text, error = self.web.extract_text(data["url"])
+        return {
+            "success": success,
+            "result": {"url": data["url"], "text": text, "length": len(text or "")} if success else None,
+            "error": error,
+        }
+
+
+class ExtractLinksTool(_SemanticWebTool):
+    def __init__(self):
+        super().__init__(
+            name="extract_links",
+            platform="web",
+            description="Extract links from a page using the legacy scraper backend",
+        )
+        self.required_fields = ("url",)
+        self.web = WebInteractor(backend="scraper")
+
+    def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        success, links, error = self.web.extract_links(
+            data["url"],
+            internal_only=data.get("internal_only", False),
+        )
+        return {
+            "success": success,
+            "result": {
+                "url": data["url"],
+                "links": [
+                    {"text": link.text, "url": link.url, "is_internal": link.is_internal}
+                    for link in (links or [])
+                ],
+            } if success else None,
+            "error": error,
+        }
+
+
+class SemanticExtractTool(_SemanticWebTool):
+    def __init__(self):
+        super().__init__(
+            name="semantic_extract",
+            platform="web",
+            description="Semantically extract structured information from a webpage",
+        )
+        self.required_fields = ("url", "prompt")
+
+    def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        return SCRAPE_SERVICE.semantic_extract(
+            url=data["url"],
+            prompt=data["prompt"],
+            schema=data.get("schema"),
+        )
+
+
+class SearchAndExtractTool(_SemanticWebTool):
+    def __init__(self):
+        super().__init__(
+            name="search_and_extract",
+            platform="web",
+            description="Search for relevant pages and semantically extract them",
+        )
+        self.required_fields = ("query", "prompt")
+
+    def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        return SCRAPE_SERVICE.search_and_extract(
+            query=data["query"],
+            prompt=data["prompt"],
+            limit=data.get("limit", 5),
+            schema=data.get("schema"),
+        )
+
+
+class ExtractArticleTool(_SemanticWebTool):
+    def __init__(self):
+        super().__init__(
+            name="extract_article",
+            platform="web",
+            description="Extract typed article information from a webpage",
+        )
+        self.required_fields = ("url",)
+
+    def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        return SCRAPE_SERVICE.extract_article(data["url"])
+
+
+class ExtractProductTool(_SemanticWebTool):
+    def __init__(self):
+        super().__init__(
+            name="extract_product",
+            platform="web",
+            description="Extract typed product information from a webpage",
+        )
+        self.required_fields = ("url",)
+
+    def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        return SCRAPE_SERVICE.extract_product(data["url"])
+
+
+class ExtractResearchTool(_SemanticWebTool):
+    def __init__(self):
+        super().__init__(
+            name="extract_research",
+            platform="web",
+            description="Extract typed research paper information from a webpage",
+        )
+        self.required_fields = ("url",)
+
+    def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        return SCRAPE_SERVICE.extract_research(data["url"])
+
+
+class SummarizePageTool(_SemanticWebTool):
+    def __init__(self):
+        super().__init__(
+            name="summarize_page",
+            platform="web",
+            description="Summarize a page into structured semantic output",
+        )
+        self.required_fields = ("url",)
+
+    def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        return SCRAPE_SERVICE.summarize_page(data["url"])
+
+
+class BrowserNavigateTool(_SemanticWebTool):
+    def __init__(self):
+        super().__init__(
+            name="browser_navigate",
+            platform="web",
+            description="Navigate to a URL in an automated browser backend",
+        )
+        self.required_fields = ("url",)
+        self.web = WebInteractor(backend="browser")
+        try:
+            self.web.start_browser()
+        except Exception:
+            pass
+
+    def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        success, current_url, error = self.web.navigate(data["url"])
+        return {
+            "success": success,
+            "result": {"requested_url": data["url"], "current_url": current_url} if success else None,
+            "error": error,
+        }
+
+
+class BrowserClickTool(_SemanticWebTool):
+    def __init__(self):
+        super().__init__(
+            name="browser_click",
+            platform="web",
+            description="Click an element in the browser automation backend",
+        )
+        self.required_fields = ("selector",)
+        self.web = WebInteractor(backend="browser")
+        try:
+            self.web.start_browser()
+        except Exception:
+            pass
+
+    def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        success, result, error = self.web.click(data["selector"], by_type=data.get("by_type", "css"))
+        return {"success": success, "result": result, "error": error}
+
+
+class BrowserTypeTool(_SemanticWebTool):
+    def __init__(self):
+        super().__init__(
+            name="browser_type",
+            platform="web",
+            description="Type text into an element in the browser automation backend",
+        )
+        self.required_fields = ("selector", "text")
+        self.web = WebInteractor(backend="browser")
+        try:
+            self.web.start_browser()
+        except Exception:
+            pass
+
+    def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        success, result, error = self.web.type_text(
+            data["selector"],
+            data["text"],
+            by_type=data.get("by_type", "css"),
+        )
+        return {"success": success, "result": result, "error": error}
+
+
+__all__ = [
+    "BrowserClickTool",
+    "BrowserNavigateTool",
+    "BrowserTypeTool",
+    "ExtractArticleTool",
+    "ExtractLinksTool",
+    "ExtractProductTool",
+    "ExtractResearchTool",
+    "ExtractTextTool",
+    "FetchPageTool",
+    "SearchAndExtractTool",
+    "SemanticExtractTool",
+    "SummarizePageTool",
+    "WebSearchTool",
+]
 
 
 

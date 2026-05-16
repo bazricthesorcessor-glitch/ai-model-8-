@@ -6,6 +6,7 @@ All system configuration centralized here.
 import os
 from datetime import datetime
 from .endpoints import endpoint_of
+from .web import WEB_CONFIG as WEB_SUBSYSTEM_CONFIG
 
 
 
@@ -165,27 +166,46 @@ TOOL_REGISTRY = {
         "params": {"selector": str, "text": str, "by_type": str},
         "handler": "web.type_text",
     },
+    "semantic_extract": {
+        "platform": "web",
+        "description": "Semantically extract structured data from a page",
+        "params": {"url": str, "prompt": str, "schema": str},
+        "handler": "web.semantic_extract",
+    },
+    "search_and_extract": {
+        "platform": "web",
+        "description": "Search for pages, then semantically extract them",
+        "params": {"query": str, "prompt": str, "limit": int, "schema": str},
+        "handler": "web.search_and_extract",
+    },
+    "extract_article": {
+        "platform": "web",
+        "description": "Extract article data using a typed schema",
+        "params": {"url": str},
+        "handler": "web.extract_article",
+    },
+    "extract_product": {
+        "platform": "web",
+        "description": "Extract product data using a typed schema",
+        "params": {"url": str},
+        "handler": "web.extract_product",
+    },
+    "extract_research": {
+        "platform": "web",
+        "description": "Extract research paper data using a typed schema",
+        "params": {"url": str},
+        "handler": "web.extract_research",
+    },
+    "summarize_page": {
+        "platform": "web",
+        "description": "Summarize a page as structured semantic output",
+        "params": {"url": str},
+        "handler": "web.summarize_page",
+    },
 }
 
 # ===== WEB MODULE CONFIGURATION =====
-WEB_CONFIG = {
-    "backend": "mock",  # Options: mock, api, scraper, browser
-    "search_provider": "serpapi",  # Options: serpapi, google, bing, duckduckgo, brave, mock
-    "browser_type": "chrome",  # Options: chrome, firefox, edge, safari, mock
-    "browser_headless": True,  # Run browser in headless mode
-    "browser_timeout": 10,  # Browser operation timeout in seconds
-    "scraper_timeout": 10,  # Web scraping timeout
-    "request_headers": {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-    },
-    # API keys (use environment variables in production)
-    "api_keys": {
-        "serpapi": None,  # Use SERPAPI_KEY env var
-        "google": None,  # Use GOOGLE_SEARCH_API_KEY env var
-        "bing": None,  # Use BING_SEARCH_API_KEY env var
-        "brave": None,  # Use BRAVE_SEARCH_API_KEY env var
-    },
-}
+WEB_CONFIG = WEB_SUBSYSTEM_CONFIG.copy()
 
 # ===== OS/HYPRLAND CONFIGURATION =====
 # ACTUAL configuration locations for Hyprland and Caelestia desktop environment

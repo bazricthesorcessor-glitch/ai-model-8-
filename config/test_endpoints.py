@@ -13,6 +13,7 @@ from config import (
     APP_NAME,
     CONTACT_EMAIL,
     ENDPOINTS,
+    DEFAULT_OLLAMA_MODEL,
     endpoint_of,
 )
 
@@ -24,8 +25,12 @@ def test_endpoint_registry_values():
     assert endpoint_of("brave_tabs") == "http://127.0.0.1:9222/json"
     assert endpoint_of("ollama") == "http://127.0.0.1:11434"
     assert endpoint_of("ollama_generate") == "http://127.0.0.1:11434/api/generate"
+    assert endpoint_of("scrapegraph_service") == "local://elzyra/web/scrapegraph"
+    assert endpoint_of("playwright") == "local://playwright/chromium"
+    assert endpoint_of("web_cache").startswith("file://")
     assert ENDPOINTS["brave_cdp"] == endpoint_of("brave_cdp")
     assert ALLOWED_WORKSPACES == [7, 8, 9]
+    assert DEFAULT_OLLAMA_MODEL == "llama3.1:8b"
 
 
 def test_unknown_endpoint_raises_clear_error():

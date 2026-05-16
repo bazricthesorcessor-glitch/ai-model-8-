@@ -1,12 +1,17 @@
-"""
-Central registry of localhost services used by Elzyra.
-"""
+"""Central registry of local services and runtime resources used by Elzyra."""
+
+from pathlib import Path
+
+_WEB_CACHE_PATH = Path.home() / ".cache" / "elzyra" / "web"
 
 ENDPOINTS = {
     "brave_cdp": "http://127.0.0.1:9222",
     "brave_tabs": "http://127.0.0.1:9222/json",
     "ollama": "http://127.0.0.1:11434",
     "ollama_generate": "http://127.0.0.1:11434/api/generate",
+    "scrapegraph_service": "local://elzyra/web/scrapegraph",
+    "playwright": "local://playwright/chromium",
+    "web_cache": f"file://{_WEB_CACHE_PATH}",
 }
 
 

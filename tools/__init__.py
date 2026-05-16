@@ -21,6 +21,12 @@ try:
         FetchPageTool,
         ExtractTextTool,
         ExtractLinksTool,
+        SemanticExtractTool,
+        SearchAndExtractTool,
+        ExtractArticleTool,
+        ExtractProductTool,
+        ExtractResearchTool,
+        SummarizePageTool,
         BrowserNavigateTool,
         BrowserClickTool,
         BrowserTypeTool,
@@ -63,6 +69,12 @@ if WEB_TOOLS_AVAILABLE:
         "FetchPageTool",
         "ExtractTextTool",
         "ExtractLinksTool",
+        "SemanticExtractTool",
+        "SearchAndExtractTool",
+        "ExtractArticleTool",
+        "ExtractProductTool",
+        "ExtractResearchTool",
+        "SummarizePageTool",
         "BrowserNavigateTool",
         "BrowserClickTool",
         "BrowserTypeTool",
@@ -104,6 +116,12 @@ if WEB_TOOLS_AVAILABLE:
     REGISTRY.register(FetchPageTool())
     REGISTRY.register(ExtractTextTool())
     REGISTRY.register(ExtractLinksTool())
+    REGISTRY.register(SemanticExtractTool())
+    REGISTRY.register(SearchAndExtractTool())
+    REGISTRY.register(ExtractArticleTool())
+    REGISTRY.register(ExtractProductTool())
+    REGISTRY.register(ExtractResearchTool())
+    REGISTRY.register(SummarizePageTool())
     REGISTRY.register(BrowserNavigateTool())
     REGISTRY.register(BrowserClickTool())
     REGISTRY.register(BrowserTypeTool())

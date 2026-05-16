@@ -7,6 +7,7 @@ The `config` package is the shared source of settings, paths, endpoints, and app
 - `settings.py`: runtime defaults and configuration maps.
 - `paths.py`: semantic path resolution helpers.
 - `endpoints.py`, `app.py`: endpoint and app-specific settings.
+- `web.py`: semantic web subsystem defaults.
 - `workspaces.py`: Elzyra workspace registry and selection helpers.
 - `HYPRLAND_CONFIG_GUIDE.md`: desktop-specific reference material.
 

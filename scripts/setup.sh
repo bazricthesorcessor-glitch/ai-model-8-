@@ -34,6 +34,9 @@ mkdir -p ~/.local/run
 echo "Installing Python dependencies..."
 pip3 install -r "$PROJECT_DIR/requirements.txt"
 
+echo "Installing Playwright Chromium..."
+python3 -m playwright install chromium
+
 # Check Ollama connection
 echo "Testing Ollama connection..."
 if curl -s "$OLLAMA_URL/api/tags" > /dev/null; then

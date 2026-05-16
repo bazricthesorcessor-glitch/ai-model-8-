@@ -12,8 +12,8 @@ from .settings import (
     INTENT_CONFIG,
     SCREEN_CONFIG,
     OS_CONFIG,
-    WEB_CONFIG,
 )
+from .web import DEFAULT_OLLAMA_MODEL, WEB_CONFIG
 from .paths import Paths, path_of
 from .app import (
     APP_NAME,
@@ -46,6 +46,7 @@ __all__ = [
     "ensure_runtime_dirs",
     "ENDPOINTS",
     "endpoint_of",
+    "DEFAULT_OLLAMA_MODEL",
     "ALLOWED_WORKSPACES",
     "WORKSPACE_REGISTRY",
     "get_available_workspace",

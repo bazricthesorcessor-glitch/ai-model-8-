@@ -59,12 +59,14 @@
 │   │   ├── settings.cpython-311.pyc
 │   │   ├── settings.cpython-314.pyc
 │   │   ├── test_endpoints.cpython-314.pyc
+│   │   ├── web.cpython-314.pyc
 │   │   └── workspaces.cpython-314.pyc
 │   ├── README.md
 │   ├── settings.py
 │   ├── shell.example.json
 │   ├── shell.json
 │   ├── test_endpoints.py
+│   ├── web.py
 │   └── workspaces.py
 ├── CONSOLIDATION_GUIDE.md
 ├── DEPENDENCY_ANALYSIS.md
@@ -203,6 +205,25 @@
 │   ├── router.py
 │   ├── routing_config.py
 │   └── test_router.py
+├── schemas
+│   ├── article.py
+│   ├── generic.py
+│   ├── github_repo.py
+│   ├── __init__.py
+│   ├── person.py
+│   ├── product.py
+│   ├── __pycache__
+│   │   ├── article.cpython-314.pyc
+│   │   ├── generic.cpython-314.pyc
+│   │   ├── github_repo.cpython-314.pyc
+│   │   ├── __init__.cpython-314.pyc
+│   │   ├── person.cpython-314.pyc
+│   │   ├── product.cpython-314.pyc
+│   │   ├── research.cpython-314.pyc
+│   │   └── search_results.cpython-314.pyc
+│   ├── README.md
+│   ├── research.py
+│   └── search_results.py
 ├── scout
 │   ├── README.md
 │   └── scout_context_router.py
@@ -211,8 +232,11 @@
 ├── scrapegraphai_detailed_analysis.md
 ├── scripts
 │   ├── check_installation.sh
+│   ├── __pycache__
+│   │   └── verify_web_subsystem.cpython-314.pyc
 │   ├── README.md
-│   └── setup.sh
+│   ├── setup.sh
+│   └── verify_web_subsystem.py
 ├── state
 │   ├── __init__.py
 │   ├── __pycache__
@@ -358,6 +382,50 @@
 │   ├── test_voice.py
 │   ├── voice_input.py
 │   └── voice.py
+├── web
+│   ├── cache.py
+│   ├── extraction_service.py
+│   ├── graph_manager.py
+│   ├── __init__.py
+│   ├── ollama_client.py
+│   ├── playwright_manager.py
+│   ├── __pycache__
+│   │   ├── cache.cpython-314.pyc
+│   │   ├── extraction_service.cpython-314.pyc
+│   │   ├── graph_manager.cpython-314.pyc
+│   │   ├── __init__.cpython-314.pyc
+│   │   ├── ollama_client.cpython-314.pyc
+│   │   ├── playwright_manager.cpython-314.pyc
+│   │   ├── rate_limiter.cpython-314.pyc
+│   │   ├── schema_service.cpython-314.pyc
+│   │   ├── scrape_service.cpython-314.pyc
+│   │   ├── search_service.cpython-314.pyc
+│   │   ├── utils.cpython-314.pyc
+│   │   └── web_observer.cpython-314.pyc
+│   ├── rate_limiter.py
+│   ├── README.md
+│   ├── schema_service.py
+│   ├── scrape_service.py
+│   ├── search_service.py
+│   ├── tests
+│   │   ├── __init__.py
+│   │   ├── __pycache__
+│   │   │   ├── __init__.cpython-314.pyc
+│   │   │   ├── test_cache.cpython-314.pyc
+│   │   │   ├── test_graph_manager.cpython-314.pyc
+│   │   │   ├── test_ollama_client.cpython-314.pyc
+│   │   │   ├── test_playwright_manager.cpython-314.pyc
+│   │   │   ├── test_schema_validation.cpython-314.pyc
+│   │   │   └── test_scrape_service.cpython-314.pyc
+│   │   ├── README.md
+│   │   ├── test_cache.py
+│   │   ├── test_graph_manager.py
+│   │   ├── test_ollama_client.py
+│   │   ├── test_playwright_manager.py
+│   │   ├── test_schema_validation.py
+│   │   └── test_scrape_service.py
+│   ├── utils.py
+│   └── web_observer.py
 ├── web_system
 │   ├── core
 │   │   ├── api_backend.py
@@ -404,4 +472,4 @@
 │   └── README.md
 └── WORKFLOW_STRUCTURE.md
 
-71 directories, 334 files
+78 directories, 395 files
